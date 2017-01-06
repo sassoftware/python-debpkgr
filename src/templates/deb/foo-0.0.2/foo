@@ -1,0 +1,3 @@
+name: {{ data.name }}
+version" {{ data.version }}
+template: {{ data.name }}-{{ data.version }}

@@ -1,0 +1,24 @@
+name: foo
+description: So this is the Foo of Brixton program
+ When they kick at your front door
+ How you gonna come?
+ With your hands on your head
+ Or on the trigger of your gun
+summary: Foo Package
+url: http://foo.com
+version: 0.0.1
+release: 20161121
+lang: en
+license: Apache 2.0
+package: deb
+packager: Brett Smith <bc.smith@sas.com>
+platform: linux
+platform_id: x86_64-debian-linux-8
+arch: amd64
+prefix: /opt
+requires:
+- python
+- python-jinja2
+sources:
+- archive: foo-0.0.1.tar.gz
+  destination: bin
