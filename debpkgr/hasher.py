@@ -83,7 +83,7 @@ class HashFile(Hasher):
 
 def hash_file(path, algs=['md5', 'sha1', 'sha256']):
     hasher = HashFile(path, algorithms=algs)
-    return hasher.read()
+    return hasher.digests
 
 def deb_hash_file(path):
     '''
@@ -98,5 +98,5 @@ def deb_hash_file(path):
 
 def hash_string(data, algs=['md5', 'sha1', 'sha256']):
     hasher = HashString(data, algorithms=algs)
-    return hasher.read()
+    return hasher.digests
 

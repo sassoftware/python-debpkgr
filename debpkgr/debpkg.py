@@ -28,7 +28,7 @@ except Exception:
     sys.exit()
 
 
-from hasher import 
+from hasher import deb_hash_file
 
 class DebPkgFiles(list):
     def __new__(cls, data=None):
@@ -40,6 +40,10 @@ class DebPkgFiles(list):
         return '\n'.join(list(self))
 
 class DebPkgMD5sums(deb822.Deb822):
+
+    def __repr__(self):
+        return 'DebPkgMD5sums(%s)' % self
+
     def __str__(self):
         results = ""
         for k, v in self.items():
@@ -63,7 +67,13 @@ class DebPkg(object):
             self._md5 = md5sums
         else:
             self._md5 = DebPkgMD5sums(md5sums) 
-       
+
+    def __repr__(self):
+        return 'DebPkg(%s)' % self.nvra
+
+    def __str__(self):
+        return self.nvra
+  
     @property
     def package(self):
         package = self._c
@@ -89,6 +99,10 @@ class DebPkg(object):
     @property
     def nvra(self):
         return '_'.join([self._c['Package'], self._c['Version'], self._c['Architecture']])
+
+    @property
+    def filename(self):
+        return self.nvra + '.deb'
 
     @property
     def name(self):
