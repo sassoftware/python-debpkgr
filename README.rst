@@ -1,4 +1,4 @@
 debpkgr
 =======
 
-Debian Auto Packager
+Debian/Ubuntu .deb pkg utils
