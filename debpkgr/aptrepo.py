@@ -16,7 +16,6 @@ import gzip
 import bz2
 import tempfile
 
-from collections import namedtuple
 
 from debian import deb822
 
@@ -96,7 +95,7 @@ class AptRepoMeta(BaseModel):
                  'codename': 'stable',
                  'components': ['main'],
                  'architectures': ['amd64'],
-                 'archives': [],
+                 'archives': {},  # path : deb822 pkg
                  'packages': {},
                  'releases': {},
                  }
@@ -116,14 +115,13 @@ class AptRepoMeta(BaseModel):
         dirs = []
         for arch in self.architectures:
             for component in self.components:
-                dirs.append(
-                    os.path.join(component, 'binary-{0}'.format(arch)))
+                dirs.append(os.path.join(self.repodir, component,
+                            'binary-{0}'.format(arch)))
         return dirs
 
     @property
     def directories(self):
-        return [os.path.join(self.repodir, x)
-                for x in self.bindirs] + self.pools
+        return self.bindirs + self.pools
 
     def make_release(self, component, arch):
         content = {'Component': component,
@@ -165,15 +163,11 @@ class AptRepoMeta(BaseModel):
 
 class AptRepo(object):
 
-    def __init__(self, name=None, codename=None,
-                 components=None, arches=None, description=None):
-        metadata = {"codename": codename,
-                    "origin": name,
-                    "label": name,
-                    "description":  description,
-                    "architectures": arches,
-                    "components": components
-                    }
+    def __init__(self, name, **kwargs):
+        metadata = dict(origin=name, label=name)
+        for k, v in kwargs.items():
+            if k in AptRepoMeta._all_slots() and v is not None:
+                metadata.setdefault(k, v)
         self.metadata = AptRepoMeta(**metadata)
 
     def _find_package_files(self, path):
@@ -207,7 +201,7 @@ class AptRepo(object):
                 if name.endswith('.deb'):
                     fp = os.path.join(root, name)
                     pkg = debpkg.DebPkg.from_file(fp)
-                    self.archives.setdefault(fp, pkg)
+                    self.metadata.archives.setdefault(fp, pkg)
         return files
 
     def parse(self, path):
@@ -258,7 +252,10 @@ class AptRepo(object):
         print("Indexing %s" % self.metadata.codename)
 
         for pool in self.metadata.pools:
-            self._find_archive_files(pool)
+            file_list = self._find_archive_files(pool)
+            print("Processing Archives:\n")
+            for f in file_list:
+                print(f)
 
         for path in self.metadata.bindirs:
             bindir = os.path.basename(path)
@@ -267,11 +264,11 @@ class AptRepo(object):
             print("Processing {0} with arch {1}".format(bindir, arch))
             # FIXME use mktemp
             packages_content = ""
-            for name, pkg in self.archives.items():
+            for name, pkg in self.metadata.archives.items():
                 if pkg.arch == arch:
                     packages_content += str(pkg.package) + "\n"
 
-            self._write_packages_files(packages_content)
+            self._write_packages_files(path, packages_content)
 
             release_file = os.path.join(path, 'Release')
             release_content = self.metadata.make_release(component, arch)
@@ -297,9 +294,8 @@ class AptRepo(object):
 def create_repo(files, name='test', arch='amd64', desc='Test Repo'):
     if isinstance(arch, str):
         arch = [arch]
-    repo = AptRepo(name=name, arches=arch, description=desc)
-    import epdb
-    epdb.st()
+    repo = AptRepo(name=name, architectures=arch,
+                   description=desc)
     repo.create(files)
     import epdb
     epdb.st()
