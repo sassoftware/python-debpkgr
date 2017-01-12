@@ -26,39 +26,155 @@ from hasher import hash_file
 
 REPO_VERSION = '1.0'
 
+import inspect
 
-class AptRepoMeta(namedtuple('AptRepoMeta', 'codename origin label version description architectures components')):
+
+class BaseModel(object):
+    __slots__ = []
+    _defaults = {}
+
+    def __init__(self, **kwargs):
+        slots = self.__class__._all_slots()
+        for k in slots:
+            if k in kwargs:
+                setattr(self, k, kwargs.get(k))
+            else:
+                setattr(self, k, self._defaults.get(k))
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        slots = set()
+        for kls in inspect.getmro(self.__class__):
+            slots.update(getattr(kls, '__slots__', []))
+        for k in slots:
+            if getattr(self, k) != getattr(other, k):
+                return False
+        return True
+
+    def __repr__(self):
+        rdata = sorted(self.as_dict().items())
+        return "<%s object at 0x%x; %s>" % (
+            self.__class__, id(self),
+            ", ".join("%s=%r" % (k, v) for (k, v) in rdata))
+
+    __str__ = __repr__
+
+    @classmethod
+    def _all_slots(cls):
+        slots = set()
+        for kls in inspect.getmro(cls):
+            slots.update(getattr(kls, '__slots__', []))
+        return slots
+
+    def as_dict(self, blacklist_fields=None):
+        if blacklist_fields is None:
+            blacklist_fields = set()
+        slots = set()
+        for kls in inspect.getmro(self.__class__):
+            slots.update(getattr(kls, '__slots__', []))
+        rdata = {}
+        for k in slots:
+            if k in blacklist_fields:
+                continue
+            v = getattr(self, k)
+            if v is not None:
+                rdata[k] = v
+        return rdata
+
+
+class AptRepoMeta(BaseModel):
 
     """
     Object for storing Apt Repo MetaData
     """
 
+    _defaults = {'origin': 'foo',
+                 'label': 'foo',
+                 'version': REPO_VERSION,
+                 'description': 'Foo Description',
+                 'codename': 'stable',
+                 'components': ['main'],
+                 'architectures': ['amd64'],
+                 'archives': [],
+                 'packages': {},
+                 'releases': {},
+                 }
+
+    __slots__ = tuple(_defaults.keys())
+
+    @property
+    def repodir(self):
+        return os.path.join('dists', self.codename)
+
+    @property
+    def pools(self):
+        return [os.path.join('pool', x) for x in self.components]
+
+    @property
+    def bindirs(self):
+        dirs = []
+        for arch in self.architectures:
+            for component in self.components:
+                dirs.append(
+                    os.path.join(component, 'binary-{0}'.format(arch)))
+        return dirs
+
+    @property
+    def directories(self):
+        return [os.path.join(self.repodir, x)
+                for x in self.bindirs] + self.pools
+
+    def make_release(self, component, arch):
+        content = {'Component': component,
+                   'Origin': self.origin,
+                   'Label': self.label,
+                   'Description': self.description,
+                   'Architecture': arch,
+                   }
+
+        return deb822.Release(content)
+
+    def make_repo_release(self, hashdict=None):
+
+        content = {'Suite': self.codename,
+                   'Codename': self.codename,
+                   'Version': self.version,
+                   'Components': ' '.join(self.components),
+                   'Origin': self.origin,
+                   'Label': self.label,
+                   'Description': self.description,
+                   'Architectures': ' '.join(self.architectures),
+                   'Date': time.strftime('%a %b %T %Z %Y'),
+                   }
+
+        if hashdict:
+            md5sums = '\n'.join(
+                [' '.join(x['md5sum']) for x in hashdict])
+            sha1sums = '\n'.join(
+                [' '.join(x['sha1']) for x in hashdict])
+            sha256sums = '\n'.join(
+                [' '.join(x['sha256']) for x in hashdict])
+            content.update({'MD5Sum': md5sums,
+                            'SHA1': sha1sums,
+                            'SHA256': sha256sums,
+                            })
+
+        return deb822.Release(content)
+
 
 class AptRepo(object):
 
-    def __init__(self, name=None, codename=None, components=None, arches=None, description=None):
-        self.origin = name or 'foo_test_repo'
-        self.label = name or 'foo_test_repo'
-        self.version = REPO_VERSION
-        self.description = description or 'Foo Test Repo'
-        self.codename = codename or 'stable'
-        self.components = components or [ 'main' ]
-        self.repodir = os.path.join('dists', self.codename)
-        self.arches = arches or ['amd64']
-        self.pools = [ os.path.join('pool', x) for x in self.components ]
-        self.bindirs = []
-        for arch in self.arches:
-            for component in self.components:
-                self.bindirs.append(
-                    os.path.join(component, 'binary-{0}'.format(arch)))
-
-        self.metadata = AptRepoMeta(
-            self.codename, self.origin, self.label, self.version, 
-            self.description, self.arches, self.components)
-
-        self.archives = {}
-        self.skeleton_dirs = [os.path.join(self.repodir, x)
-                              for x in self.bindirs] + self.pools
+    def __init__(self, name=None, codename=None,
+                 components=None, arches=None, description=None):
+        metadata = {"codename": codename,
+                    "origin": name,
+                    "label": name,
+                    "description":  description,
+                    "architectures": arches,
+                    "components": components
+                    }
+        self.metadata = AptRepoMeta(**metadata)
 
     def _find_package_files(self, path):
         """
@@ -75,13 +191,13 @@ class AptRepo(object):
                     algs = ["md5", "sha1", "sha256"]
                     hashes = hash_file(os.path.abspath(full_path), algs=algs)
                     size = str(os.stat(full_path).st_size)
-
                     info = {
                         "md5sum": [hashes["md5"], size, short_path],
                         "sha1": [hashes["sha1"], size, short_path],
                         "sha256": [hashes["sha256"], size, short_path],
                     }
                     files.setdefault(short_path, info)
+        self.metadata.packages = files
         return files
 
     def _find_archive_files(self, path):
@@ -99,10 +215,10 @@ class AptRepo(object):
 
     def create(self, files, symlinks=False):
         dirs = []
-        for d in self.skeleton_dirs:
+        for d in self.metadata.directories:
             dirs.append(utils.makedirs(d))
         if files:
-            for pool in self.pools:
+            for pool in self.metadata.pools:
                 for f in files:
                     if symlinks:
                         # TODO Make symlinks
@@ -113,101 +229,82 @@ class AptRepo(object):
         index = self.index()
         return index
 
-    def index(self):
-        print("Indexing %s" % self.codename)
-        bindirs = []
+    def _create_overrides(self):
+        overrides_file = tempfile.TemporaryFile(prefix="overrides")
+        overrides_content = ""
+        for name, pkg in self.archives.items():
+            overrides_content += "%s Priority extra\n" % pkg.name
+        overrides_file.write(overrides_content)
+        return overrides_file
 
-        for pool in self.pools:
-            self._find_archive_files(pool)
-
-        for root, dirs, _ in os.walk(self.repodir):
-            for x in dirs:
-                if x.startswith('binary'):
-                    bindirs.append(os.path.join(root, x))
-
-        for path in bindirs:
-            bindir = os.path.basename(path)
-            arch = bindir.split('-')[-1]
-            component = path.split(os.sep)[-2]
-            print("Architecture : %s" % arch)
-            if arch not in self.arches:
-                continue
-            print("Processing {0} with arch {1}".format(bindir, arch))
-
-            # FIXME use mktemp
-            overrides_file = tempfile.TemporaryFile(prefix="overrides")
-            overrides_content = ""
-            packages_content = ""
-
-            package_file = os.path.join(path, 'Packages')
-            package_file_gz = os.path.join(path, 'Packages.gz')
-            package_file_bz2 = os.path.join(path, 'Packages.bz2')
-            release_file = os.path.join(path, 'Release')
-            release_content = deb822.Release({ 'Component': component,
-                                            'Origin': self.origin,
-                                            'Label': self.label,
-                                            'Description': self.description,
-                                            'Architecture': arch,
-                                    })
-
-            for name, pkg in self.archives.items():
-                overrides_content += "%s Priority extra\n" % pkg.name
-                packages_content += str(pkg.package) + "\n"
-
-            overrides_file.write(overrides_content)
-
+    def _write_packages_files(self, path, content):
+        package_file = os.path.join(path, 'Packages')
+        package_file_gz = os.path.join(path, 'Packages.gz')
+        package_file_bz2 = os.path.join(path, 'Packages.bz2')
+        try:
             with open(package_file, 'w') as pfh:
-                pfh.write(packages_content)
-
+                pfh.write(content)
+        except Exception, e:
+            raise IOError, e
+        try:
             with open(package_file, 'rb') as fhi, gzip.open(package_file_gz, 'wb') as fhgz, bz2.BZ2File(package_file_bz2, 'wb', compresslevel=9) as fhbz:
                 shutil.copyfileobj(fhi, fhgz)
                 fhi.seek(0)
                 shutil.copyfileobj(fhi, fhbz)
+        except Exception, e:
+            raise IOError, e
+
+    def index(self):
+        print("Indexing %s" % self.metadata.codename)
+
+        for pool in self.metadata.pools:
+            self._find_archive_files(pool)
+
+        for path in self.metadata.bindirs:
+            bindir = os.path.basename(path)
+            arch = bindir.split('-')[-1]
+            component = path.split(os.sep)[-2]
+            print("Processing {0} with arch {1}".format(bindir, arch))
+            # FIXME use mktemp
+            packages_content = ""
+            for name, pkg in self.archives.items():
+                if pkg.arch == arch:
+                    packages_content += str(pkg.package) + "\n"
+
+            self._write_packages_files(packages_content)
+
+            release_file = os.path.join(path, 'Release')
+            release_content = self.metadata.make_release(component, arch)
 
             with open(release_file, 'w') as fhr:
                 fhr.write(str(release_content))
 
-            # Cleanup overrides file is silly
-            overrides_file.close()
-
         # Make Main Release
-        pack = self._find_package_files(self.repodir)
-        package_md5sums = '\n'.join(
-            [' '.join(x['md5sum']) for x in pack.values()])
-        package_sha1sums = '\n'.join(
-            [' '.join(x['sha1']) for x in pack.values()])
-        package_sha256sums = '\n'.join(
-            [' '.join(x['sha256']) for x in pack.values()])
-        repo_release_file = os.path.join(self.repodir, 'Release')
-        repo_release_content = deb822.Release({'Codename': self.codename,
-                                         'Version': self.version,
-                                         'Components': ' '.join(self.components),
-                                         'Origin': self.origin,
-                                         'Label': self.label,
-                                         'Description': self.description,
-                                         'Architectures': ' '.join(self.arches),
-                                         'Date': time.strftime('%a %b %T %Z %Y'),
-                                         'MD5Sum': package_md5sums,
-                                         'SHA1': package_sha1sums,
-                                         'SHA256': package_sha256sums,
-                                          })
+        pack = self._find_package_files(self.metadata.repodir)
+        repo_release_file = os.path.join(self.metadata.repodir, 'Release')
+        repo_release_content = self.metadata.make_repo_release(
+            hashdict=pack.values())
 
         with open(repo_release_file, 'w') as fhr:
             fhr.write(str(repo_release_content))
 
         # FIXME Sign the Release file
 
-        return release_content
-
     def sign(self):
         raise NotImplementedError
 
-def create_repo(files, name=None, arch=None, desc=None):
-    repo = AptRepo(name=name, arches=[arch], description=desc)
-    repo.create(files)
-    import epdb;epdb.st()
-        
 
-if __name__ == '__main__' :
+def create_repo(files, name='test', arch='amd64', desc='Test Repo'):
+    if isinstance(arch, str):
+        arch = [arch]
+    repo = AptRepo(name=name, arches=arch, description=desc)
+    import epdb
+    epdb.st()
+    repo.create(files)
+    import epdb
+    epdb.st()
+
+
+if __name__ == '__main__':
     import sys
     create_repo(sys.argv[1:])
