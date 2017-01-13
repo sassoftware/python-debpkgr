@@ -1,3 +1,0 @@
-name: {{ data.name }}
-version: {{ data.version }}
-template: single-default

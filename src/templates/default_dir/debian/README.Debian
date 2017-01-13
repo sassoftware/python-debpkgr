@@ -1,6 +1,0 @@
-{{ data.summary }}
-
-  {{ data.description}}
-
-
- -- {{ data.maintainer }}  {{ data.timestamp }}

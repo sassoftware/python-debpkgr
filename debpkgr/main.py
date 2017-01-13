@@ -26,9 +26,13 @@ except Exception:
     print("[ERROR] python-debian missing xz support\npip install --upgrade python-debian chardet\n")
     sys.exit()
 
-from pkg import DebPkg
+from debpkg import DebPkg
+from aptrepo import create_repo
+from aptrepo import index_repo
+from aptrepo import parse_repo
 
-def main(args=None):
+
+def deb_package(args=None):
 
     __version__ = '0.0.1'
     _usage = ('%(prog)s [options] pkg.deb\n')
@@ -119,14 +123,14 @@ def main(args=None):
                   
 
 
-def apt_repo_utils(args=None):
+def apt_indexer(args=None):
 
     __version__ = '0.0.1'
     _usage = ('%(prog)s [options] /path/*.deb\n')
     _description = ("Apt Repository Creation Tool\n"
                     "Python implementation of apt repo tools\n"
                     )
-    _prog = "create_apt_repo"
+    _prog = "aptindexer"
 
     parser = argparse.ArgumentParser(version="%(prog)s " + __version__,
                                      description=_description,
@@ -146,15 +150,20 @@ def apt_repo_utils(args=None):
                         default=False,
                         help="Parse apt repository metadata")
 
-    parser.add_argument("-r", "--reponame", dest="reponame", action="store",
+    parser.add_argument("-n", "--name", dest="name", action="store",
                         default="stable",
                         help="Specify apt repository name")
 
-    parser.add_argument("-a", "--arch", dest="arch", action="store",
+    parser.add_argument("-a", "--arches", dest="arches", action="store",
                         default="amd64",
-                        help="Specify apt repository name")
+                        help="Specify apt repository architecture")
 
-    parser.add_argument('debpkgs', nargs='?',
+    parser.add_argument("-D", "--description", dest="desc", action="store",
+                        default="Apt Indexer Test Repo",
+                        help="Specify apt repository description")
+
+
+    parser.add_argument('files', nargs='?',
                         help="/path/to/pkg.deb pkg.deb... etc")
 
     args = parser.parse_args()
@@ -165,146 +174,40 @@ def apt_repo_utils(args=None):
         'parse': args.parse,
     }
 
-    switches = {
-        'reponame': args.reponame,
-        'arch': args.arch,
-    }
+    name = args.name,
+    arches = args.arches,
+    description = args.desc
 
     if True not in ops.values():
         ops['parse'] = True
 
     files = []
 
-    pool = 'pool/main'
-
-    if args.debpkgs:
-        files = args.debpkgs
-
     # if True not in steps.values():
     #    steps['package'] = True
 
-    if ops['create']:
-        if not os.path.exists(pool) and files:
-            os.makedirs(pool)
-            for f in files:
-                shutil.copy(f, pool)
-
-    if ops['index'] or ops['parse']:
-        if not os.path.exists(pool):
+    if ops['create']:    
+        if args.files:
+            files = args.files
+        else:
+            pool = 'pool/main'
+            files = [os.path.join(pool, x)
+                  for x in os.listdir(pool) if x.endswith('.deb')]
+        if not len(files):
             print("[ERROR] No pool/main directory or *.deb supplied")
             print("%s --help" % _prog)
-            sys.exit(1)
+            sys.exit(1) 
+        create_repo(files, name=name, arches=arches, desc=description)
 
-    pool_files = [os.path.join(pool, x)
-                  for x in os.listdir(pool) if x.endswith('.deb')]
-
-    packages = {}
-
-    for path in pool_files:
-        pkg = DebPkg.from_file(path)
-        packages.setdefault(pkg.name, pkg)
+    if ops['parse']:
+        for path in files:
+            if os.path.exists(path):
+                parse_repo(path)
 
     if ops['index']:
-        print("Indexing %s" % switches['reponame'])
-
-        repodir = os.path.join('dists', switches['reponame'])
-
-        bindirs = []
-        for root, dirs, _ in os.walk(repodir): 
-            for x in dirs: 
-                if x.startswith('binary'):
-                    bindirs.append(os.path.join(root, x))
-
-
-        for path in bindirs:
-            bindir = os.path.basename(path)
-            arch = bindir.split('-')[-1]
-            print("Architecture : %s" % arch)
-            if arch != switches['arch']:
-                continue
-            print("Processing {0} with arch {1}".format(bindir, arch))
-
-            # FIXME use mktemp
-            overrides_file = "/tmp/overrides"
-            overrides_content = ""
-            packages_content = ""
-            package_file = os.path.join(path, 'Packages')
-            package_file_gz = os.path.join(path, 'Packages.gz')
-            package_file_bz2 = os.path.join(path, 'Packages.bz2')
-            
-            for name, pkg in packages.items():
-                overrides_content += "%s Priority extra\n" % pkg.name
-                packages_content += str(pkg.package) + "\n"
-            with open(overrides_file, 'w') as ofh:
-                ofh.write(overrides_content)
-            with open(package_file, 'w') as pfh:
-                pfh.write(packages_content)
-            # Index of packages is written to Packages which is also zipped
-            # dpkg-scanpackages -a ${arch} pool/main $overrides_file > $package_file
-            # The line above is also commonly written as:
-            # dpkg-scanpackages -a ${arch} pool/main /dev/null > $package_file
-
-            # gzip -9c $package_file > ${package_file}.gz
-            # with open(package_file, 'rb') as fhi, gzip.open(package_file_gz, 'wb') as fhgz:
-            #    shutil.copyfileobj(fhi, fhgz)
-            # with open(package_file, 'rb') as fhi, bz2.BZ2File(package_file_bz2, 'wb', compresslevel=9) as fhbz:
-            #    shutil.copyfileobj(fhi, fhbz)
-
-            # bzip2 -c $package_file > ${package_file}.bz2
-            with open(package_file, 'rb') as fhi, gzip.open(package_file_gz, 'wb') as fhgz, bz2.BZ2File(package_file_bz2, 'wb', compresslevel=9) as fhbz:
-                shutil.copyfileobj(fhi, fhgz)
-                fhi.seek(0)
-                shutil.copyfileobj(fhi, fhbz)
-                
-            # Cleanup
-            os.remove(overrides_file)
-
-        def _find_packages(path):
-            files = {}
-            index = len(path.split(os.sep))
-            for root, _, f in os.walk(path):
-                for name in f:
-                    if name.startswith('Package'):
-                        full_path = os.path.join(root,name)
-                        short_path = os.sep.join(full_path.split(os.sep)[index:])
-                        hashes = DebPkg.make_hashes(os.path.abspath(full_path))
-                        size = str(os.stat(full_path).st_size)
-
-                        info = { 
-                            "md5sum": [ hashes["MD5sum"], size, short_path ],
-                            "sha1": [ hashes["SHA1"], size, short_path ],
-                            "sha256": [ hashes["SHA256"], size, short_path ],
-                        }
-                        files.setdefault(short_path, info)
-            return files
-
-
-
-        # Make Release
-        pack = _find_packages(repodir)
-        package_md5sums = '\n'.join([ ' '.join(x['md5sum']) for x in pack.values() ])
-        package_sha1sums = '\n'.join([ ' '.join(x['sha1']) for x in pack.values() ])
-        package_sha256sums = '\n'.join([ ' '.join(x['sha256']) for x in pack.values() ])
-        release_file = os.path.join(repodir, 'Release')
-        release_content = deb822.Release({'Suite': switches['reponame'],
-                                         'Version': '1.0',
-                                         'Component': 'main',
-                                         'Origin': 'SAS',
-                                         'Label': 'sas-esp-%s' % switches['arch'],
-                                         'Architecture': switches['arch'],
-                                         'Date': time.strftime('%a %b %T %Z %Y'),
-                                         'MD5Sum': package_md5sums,
-                                         'SHA1': package_sha1sums,
-                                         'SHA256' : package_sha256sums,
-                                         })
-
-        with open(release_file, 'w') as fhr:
-            fhr.write(str(release_content))
-
-        # FIXME Sign the Release file
-
-        import epdb;epdb.st()
-
+        for path in files:
+            if os.path.exists(path):
+                index_repo(path)
 
 if __name__ == "__main__":
-    main()
+    deb_package()

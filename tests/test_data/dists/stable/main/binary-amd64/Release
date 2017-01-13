@@ -1,0 +1,5 @@
+Component: main
+Origin: test_repo_foo
+Label: test_repo_foo
+Architecture: amd64
+Description: Apt repository for Test Repo Foo

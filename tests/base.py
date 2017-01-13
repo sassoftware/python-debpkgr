@@ -17,20 +17,44 @@ from __future__ import division
 from __future__ import print_function
 import os
 import shutil
+import pkg_resources
 import tempfile
 import unittest
 
 from six import text_type
 
 
+try:
+    import unittest2 as unittest
+except ImportError:
+    import unittest
+
+try:
+    from unittest import mock  # noqa
+except ImportError:
+    import mock  # noqa
+
+
 class BaseTestCase(unittest.TestCase):
-    test_dir = 'debpkgr-test-'
+    test_dir_pre = 'debpkgr-test-'
 
     def setUp(self):
-        self.test_dir = tempfile.mkdtemp(prefix=self.test_dir)
+        self.test_dir = tempfile.mkdtemp(prefix=self.test_dir_pre)
+        self.current_repo_dir = os.path.join(self.test_dir, 'cur_repo')
+        self.new_repo_dir = self.mkdir('new_repo')
+        self.pool_dir = os.path.join(self.current_repo_dir, 'pool', 'main')
+                
+
+        test_data = pkg_resources.resource_filename(
+            __name__, 'test_data/')
+        print(test_data)
+
+        shutil.copytree(test_data, self.current_repo_dir)
+
+        os.chdir(self.test_dir)
+
         self.addCleanup(shutil.rmtree, self.test_dir, ignore_errors=True)
         self.addCleanup(os.chdir, os.getcwd())
-        os.chdir(self.test_dir)
 
     def mkfile(self, path, contents=None):
         if contents is None:

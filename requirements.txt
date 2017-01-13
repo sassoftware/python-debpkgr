@@ -1,1 +1,4 @@
 six~=1.0
+future
+python-debian~=0.1.28
+PyYAML

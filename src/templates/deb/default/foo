@@ -1,2 +1,0 @@
-name: {{ data.name }}
-template: default

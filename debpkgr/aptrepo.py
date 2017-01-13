@@ -116,7 +116,7 @@ class AptRepoMeta(BaseModel):
         for arch in self.architectures:
             for component in self.components:
                 dirs.append(os.path.join(self.repodir, component,
-                            'binary-{0}'.format(arch)))
+                                         'binary-{0}'.format(arch)))
         return dirs
 
     @property
@@ -163,12 +163,20 @@ class AptRepoMeta(BaseModel):
 
 class AptRepo(object):
 
-    def __init__(self, name, **kwargs):
+    def __init__(self, path, name, **kwargs):
+        self.base_path = path
+        self.repo_name = name
         metadata = dict(origin=name, label=name)
         for k, v in kwargs.items():
             if k in AptRepoMeta._all_slots() and v is not None:
                 metadata.setdefault(k, v)
         self.metadata = AptRepoMeta(**metadata)
+
+    def _prefix(self, path):
+        return os.path.join(self.base_path, path)
+
+    def _prefixes(self, paths):
+        return [ self._prefix(path) for path in paths ]
 
     def _find_package_files(self, path):
         """
@@ -204,25 +212,6 @@ class AptRepo(object):
                     self.metadata.archives.setdefault(fp, pkg)
         return files
 
-    def parse(self, path):
-        pass
-
-    def create(self, files, symlinks=False):
-        dirs = []
-        for d in self.metadata.directories:
-            dirs.append(utils.makedirs(d))
-        if files:
-            for pool in self.metadata.pools:
-                for f in files:
-                    if symlinks:
-                        # TODO Make symlinks
-                        print("Using symlinks")
-                    else:
-                        print("Copying file")
-                        shutil.copy(f, pool)
-        index = self.index()
-        return index
-
     def _create_overrides(self):
         overrides_file = tempfile.TemporaryFile(prefix="overrides")
         overrides_content = ""
@@ -251,13 +240,13 @@ class AptRepo(object):
     def index(self):
         print("Indexing %s" % self.metadata.codename)
 
-        for pool in self.metadata.pools:
+        for pool in self._prefixes(self.metadata.pools):
             file_list = self._find_archive_files(pool)
             print("Processing Archives:\n")
             for f in file_list:
                 print(f)
 
-        for path in self.metadata.bindirs:
+        for path in self._prefixes(self.metadata.bindirs):
             bindir = os.path.basename(path)
             arch = bindir.split('-')[-1]
             component = path.split(os.sep)[-2]
@@ -287,20 +276,49 @@ class AptRepo(object):
 
         # FIXME Sign the Release file
 
+    def create(self, files, symlinks=False):
+        dirs = []
+        for d in self._prefixes(self.metadata.directories):
+            dirs.append(utils.makedirs(d))
+        if files:
+            for pool in self.metadata.pools:
+                for f in files:
+                    if symlinks:
+                        # TODO Make symlinks
+                        print("Using symlinks")
+                    else:
+                        print("Copying file")
+                        shutil.copy(f, pool)
+        self.index()
+        return 
+
     def sign(self):
         raise NotImplementedError
 
+    @classmethod
+    def parse(cls, path):
+        """
+        Parse a repo from a path 
+        return AptRepo object
+        """
+        pass
 
-def create_repo(files, name='test', arch='amd64', desc='Test Repo'):
-    if isinstance(arch, str):
-        arch = [arch]
-    repo = AptRepo(name=name, architectures=arch,
+
+def create_repo(path, files, name=None, arches=None, desc=None):
+    if arches is not None:
+        if isinstance(arches, str):
+            arches = [arches]
+    repo = AptRepo(path, name, architectures=arches,
                    description=desc)
-    repo.create(files)
-    import epdb
-    epdb.st()
+    index = repo.create(files)
+    return repo
+
+def index_repo(path):
+    repo = AptRepo.parse(path)
+    repo.index()
+    return repo
 
 
-if __name__ == '__main__':
-    import sys
-    create_repo(sys.argv[1:])
+def parse_repo(path):
+    repo = AptRepo.parse(path)
+    return repo
