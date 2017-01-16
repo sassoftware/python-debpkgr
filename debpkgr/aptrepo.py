@@ -176,7 +176,7 @@ class AptRepo(object):
         return os.path.join(self.base_path, path)
 
     def _prefixes(self, paths):
-        return [ self._prefix(path) for path in paths ]
+        return [self._prefix(path) for path in paths]
 
     def _find_package_files(self, path):
         """
@@ -265,14 +265,21 @@ class AptRepo(object):
             with open(release_file, 'w') as fhr:
                 fhr.write(str(release_content))
 
+            self.metadata.releases.setdefault(release_file, release_content)
+
         # Make Main Release
-        pack = self._find_package_files(self.metadata.repodir)
-        repo_release_file = os.path.join(self.metadata.repodir, 'Release')
+        self.metadata.packages = self._find_package_files(
+            self._prefix(self.metadata.repodir))
+        repo_release_file = self._prefix(os.path.join(self.metadata.repodir,
+                                                      'Release'))
         repo_release_content = self.metadata.make_repo_release(
-            hashdict=pack.values())
+            hashdict=self.metadata.packages.values())
 
         with open(repo_release_file, 'w') as fhr:
             fhr.write(str(repo_release_content))
+
+        self.metadata.releases.setdefault(repo_release_file,
+                                          repo_release_content)
 
         # FIXME Sign the Release file
 
@@ -281,7 +288,7 @@ class AptRepo(object):
         for d in self._prefixes(self.metadata.directories):
             dirs.append(utils.makedirs(d))
         if files:
-            for pool in self.metadata.pools:
+            for pool in self._prefixes(self.metadata.pools):
                 for f in files:
                     if symlinks:
                         # TODO Make symlinks
@@ -290,7 +297,7 @@ class AptRepo(object):
                         print("Copying file")
                         shutil.copy(f, pool)
         self.index()
-        return 
+        return
 
     def sign(self):
         raise NotImplementedError
@@ -298,7 +305,7 @@ class AptRepo(object):
     @classmethod
     def parse(cls, path):
         """
-        Parse a repo from a path 
+        Parse a repo from a path
         return AptRepo object
         """
         pass
@@ -310,8 +317,9 @@ def create_repo(path, files, name=None, arches=None, desc=None):
             arches = [arches]
     repo = AptRepo(path, name, architectures=arches,
                    description=desc)
-    index = repo.create(files)
+    repo.create(files)
     return repo
+
 
 def index_repo(path):
     repo = AptRepo.parse(path)
