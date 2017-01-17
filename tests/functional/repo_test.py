@@ -28,7 +28,7 @@ from debpkgr.aptrepo import parse_repo
 from debpkgr.aptrepo import index_repo
 from tests import base
 
-class CreateRepoTest(base.BaseTestCase):
+class RepoTest(base.BaseTestCase):
 
     def test_create_repo(self):
         name = 'test_repo_foo' # should match Origin and Label
