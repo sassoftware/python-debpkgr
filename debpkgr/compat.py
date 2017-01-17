@@ -20,6 +20,7 @@ from six import (
     string_types,
     text_type,
 )
+
 from six.moves import configparser
 from six.moves.reprlib import Repr
 from six.moves.urllib.parse import parse_qs, urlsplit, urlunsplit

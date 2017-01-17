@@ -8,7 +8,7 @@ import os
 import re
 import string
 
-from compat import urlsplit
+from .compat import urlsplit
 
 ENV_NAME_RE = re.compile(r'_{2,}')
 utf8writer = codecs.getwriter('utf-8')

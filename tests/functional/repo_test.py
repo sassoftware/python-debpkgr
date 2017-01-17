@@ -18,9 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-import functools
 import os
-import tempfile
 
 from debian import deb822
 from debpkgr.aptrepo import create_repo
@@ -28,22 +26,23 @@ from debpkgr.aptrepo import parse_repo
 from debpkgr.aptrepo import index_repo
 from tests import base
 
+
 class RepoTest(base.BaseTestCase):
 
     def test_create_repo(self):
-        name = 'test_repo_foo' # should match Origin and Label
-        arches = [ 'amd64', 'i386' ]
+        name = 'test_repo_foo'  # should match Origin and Label
+        arches = ['amd64', 'i386']
         description = 'Apt repository for Test Repo Foo'
-        files = [] 
+        files = []
         for root, _, fl in os.walk(self.pool_dir):
             for f in fl:
                 if f.endswith('.deb'):
                     files.append(os.path.join(root, f))
 
-        repo = create_repo(self.new_repo_dir, files, name=name, 
-                                arches=arches, desc=description)
-  
-        repo_dir = os.path.join(self.new_repo_dir, repo.metadata.repodir)   
+        repo = create_repo(self.new_repo_dir, files, name=name,
+                           arches=arches, desc=description)
+
+        repo_dir = os.path.join(self.new_repo_dir, repo.metadata.repodir)
         release_file = os.path.join(repo_dir, 'Release')
 
         with open(release_file, 'r') as fh:
@@ -55,15 +54,18 @@ class RepoTest(base.BaseTestCase):
         self.assertEquals(release_822.get('Label'), name)
         self.assertEquals(release_822.get('Description'), description)
 
-        new_files = [ os.path.basename(x) for x in repo.metadata.archives.keys()]
-        orig_files = [ os.path.basename(x) for x in files ]
+        new_files = [os.path.basename(x)
+                     for x in repo.metadata.archives.keys()]
+        orig_files = [os.path.basename(x) for x in files]
 
         self.assertEquals(new_files, orig_files)
 
-        #assert release_data == False
+        # assert release_data == False
 
     def X_test_index_repo(self):
         repo = index_repo(self.new_repo_dir)
+        print(repo.name)
 
     def X_test_parse_repo(self):
         repo = parse_repo(self.current_repo_dir)
+        print(repo.name)

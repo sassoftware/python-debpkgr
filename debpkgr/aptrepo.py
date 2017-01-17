@@ -19,9 +19,9 @@ import tempfile
 
 from debian import deb822
 
-import debpkg
-import utils
-from hasher import hash_file
+from . import debpkg
+from . import utils
+from .hasher import hash_file
 
 REPO_VERSION = '1.0'
 
@@ -227,15 +227,18 @@ class AptRepo(object):
         try:
             with open(package_file, 'w') as pfh:
                 pfh.write(content)
-        except Exception, e:
-            raise IOError, e
+        except IOError as err:
+            raise err.args[0]
         try:
-            with open(package_file, 'rb') as fhi, gzip.open(package_file_gz, 'wb') as fhgz, bz2.BZ2File(package_file_bz2, 'wb', compresslevel=9) as fhbz:
-                shutil.copyfileobj(fhi, fhgz)
-                fhi.seek(0)
-                shutil.copyfileobj(fhi, fhbz)
-        except Exception, e:
-            raise IOError, e
+            with open(package_file, 'rb') as fhi:
+                with gzip.open(package_file_gz, 'wb') as fhgz:
+                    shutil.copyfileobj(fhi, fhgz)
+                with bz2.BZ2File(package_file_bz2,
+                                 'wb', compresslevel=9) as fhbz:
+                    fhi.seek(0)
+                    shutil.copyfileobj(fhi, fhbz)
+        except IOError as err:
+            raise err.args[0]
 
     def index(self):
         print("Indexing %s" % self.metadata.codename)

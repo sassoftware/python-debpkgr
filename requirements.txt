@@ -1,5 +1,6 @@
 six~=1.0
 future
+hashlib
 python-debian~=0.1.28
 chardet~=2.3.0
 PyYAML

@@ -1,4 +1,12 @@
+
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
+import sys
 import hashlib
 
 BLOCKSIZE = 65536
@@ -9,10 +17,19 @@ class Hasher(object):
     def __init__(self, algorithms=[]):
         if isinstance(algorithms, str):
             algorithms = [algorithms]
-        self.algorithms = tuple(algorithms) or hashlib.algorithms
+        self.algorithms = tuple(algorithms) or self._available_algorithms()
         self.hashers = dict([(x, getattr(hashlib, x))
-                            for x in hashlib.algorithms if x in self.algorithms])
+                            for x in self._available_algorithms()
+                            if x in self.algorithms])
         self._digests = dict([(x, None) for x in self.hashers.keys()])
+
+    def _available_algorithms(self):
+        if (sys.version_info > (3, 0)):
+            # Python 3 code in this block
+            return hashlib.algorithms_guaranteed
+        else:
+            # Python 2 code in this block
+            return hashlib.algorithms
 
     def _hash(self):
         raise NotImplementedError
@@ -41,7 +58,7 @@ class Hasher(object):
 class HashString(Hasher):
 
     def __init__(self, data, algorithms=[]):
-        self.data = data
+        self.data = data.encode('utf-8')
         super(HashString, self).__init__(algorithms=algorithms)
 
     def _hash(self, hasher):
@@ -72,7 +89,7 @@ class HashFile(Hasher):
         '''
         self._make_hashes()
         lines = ""
-        template = "{0} ({1}) = {2}\n"
+        template = u"{0} ({1}) = {2}\n"
         for k, v in self.digests.items():
             lines += template.format(k.capitalize(), self.filename, v)
         return lines
@@ -97,8 +114,8 @@ def deb_hash_file(path):
     '''
     hasher = HashFile(path, algorithms=['md5', 'sha1', 'sha256'])
     hashes = {'MD5sum': hasher.digests['md5'],
-              'SHA1':  hasher.digests['sha1'],
-              'SHA256':  hasher.digests['sha256'],
+              'SHA1': hasher.digests['sha1'],
+              'SHA256': hasher.digests['sha256'],
               }
     return hashes
 

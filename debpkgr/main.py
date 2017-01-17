@@ -65,7 +65,7 @@ def deb_package(args=None):
                         default=False,
                         help="Return .deb Package File List")
 
-    parser.add_argument( "-F", "--file-md5sums", dest="md5sums", 
+    parser.add_argument("-F", "--file-md5sums", dest="md5sums",
                         action="store_true",
                         default=False,
                         help="Return .deb Package File List with MD5sums")
@@ -85,7 +85,6 @@ def deb_package(args=None):
     parser.add_argument("--debug", dest="debug", action="store_true",
                         default=False,
                         help="debug")
-
 
     parser.add_argument('debpkgs', nargs='?',
                         help="/path/to/pkg.deb pkg.deb... etc")
@@ -110,20 +109,22 @@ def deb_package(args=None):
     if True not in steps.values():
         steps['package'] = True
 
-    if not args.debpkgs:
-        pool = 'pool/main'
-        if os.path.exists(pool):
-            files = [os.path.join(pool, x)
-                     for x in os.listdir(pool) if x.endswith('.deb')]
-        else:
-            print("[ERROR] No pool/main directory or *.deb supplied")
-            print("%s --help" % _prog)
-            sys.exit(1)
-    else:
-        files = args.debpkgs
+    files = args.debpkgs
 
     if isinstance(files, str):
-        files = [ files ]
+        files = [files]
+
+    if not len(files):
+        pool = 'pool/main'
+        if os.path.exists(pool):
+            for root, _, f in os.walk(pool):
+                for name in f:
+                    if name.endswith('.deb'):
+                        files.append(os.path.join(root, name))
+        else:
+            print("[ERROR] Can not find pool directory")
+            print("%s --help" % _prog)
+            sys.exit(1)
 
     packages = {}
 
@@ -180,7 +181,6 @@ def apt_indexer(args=None):
                         default=False,
                         help="debug")
 
-
     parser.add_argument('files', nargs='?',
                         help="/path/to/pkg.deb pkg.deb... etc")
 
@@ -213,7 +213,7 @@ def apt_indexer(args=None):
         files = args.files
 
     if isinstance(files, str):
-        files = [ files ]
+        files = [files]
 
     if ops['create']:
         if not len(files):
@@ -244,5 +244,3 @@ def apt_indexer(args=None):
         for path in files:
             if os.path.exists(path):
                 index_repo(path)
-
-

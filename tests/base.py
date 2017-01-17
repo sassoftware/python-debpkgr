@@ -24,10 +24,11 @@ import unittest
 from six import text_type
 
 
+# flake8: noqa
 try:
     import unittest2 as unittest
 except ImportError:
-    import unittest
+    import unittest # noqa
 
 try:
     from unittest import mock  # noqa
@@ -43,7 +44,6 @@ class BaseTestCase(unittest.TestCase):
         self.current_repo_dir = os.path.join(self.test_dir, 'cur_repo')
         self.new_repo_dir = self.mkdir('new_repo')
         self.pool_dir = os.path.join(self.current_repo_dir, 'pool', 'main')
-                
 
         test_data = pkg_resources.resource_filename(
             __name__, 'test_data/')

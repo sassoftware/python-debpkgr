@@ -19,28 +19,37 @@ import pdb
 
 
 class DebPkgError(Exception):
+
     "Base class"
 
+
 class InvalidTest(DebPkgError):
+
     "Raised when YAML is invalid"
 
+
 class SourceBuildError(DebPkgError):
+
     "Raised when building the source artifact fails"
 
 
 class BinaryBuildError(DebPkgError):
+
     "Raised when building the binary artifact fails"
 
 
 class InvalidKeyError(DebPkgError):
+
     """An invalid key was specified"""
 
+
 class KeyNotFoundError(DebPkgError):
+
     """The specified key was not found"""
 
 
 def debug_except_hook(type, value, tb):
-    print "T-Rex Hates %s" % type.__name__
-    print str(type)
+    print("T-Rex Hates {0}".format(type.__name__))
+    print(str(type))
     traceback.print_exception(type, value, tb)
     pdb.post_mortem(tb)
