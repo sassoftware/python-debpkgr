@@ -1,7 +1,5 @@
-# RENAME THIS PROJECT TO SOMETHING BETTER THAN DEBPKGR
-#
-* Finish rewrite of aptrepo
-* Decide on a prefix thing... I am thinking a File Struct that has everything you need in it.
-* Move along with test
+TODO
+====
+* RENAME THIS PROJECT TO SOMETHING BETTER THAN DEBPKGR
 * Rewrite arfile to be able to read and write arfiles
 * Add signing support to module

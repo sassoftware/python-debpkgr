@@ -3,13 +3,15 @@ import hashlib
 
 BLOCKSIZE = 65536
 
+
 class Hasher(object):
 
     def __init__(self, algorithms=[]):
         if isinstance(algorithms, str):
-            algorithms = [ algorithms ]
+            algorithms = [algorithms]
         self.algorithms = tuple(algorithms) or hashlib.algorithms
-        self.hashers = dict([ (x, getattr(hashlib, x)) for x in hashlib.algorithms if x in self.algorithms ] )
+        self.hashers = dict([(x, getattr(hashlib, x))
+                            for x in hashlib.algorithms if x in self.algorithms])
         self._digests = dict([(x, None) for x in self.hashers.keys()])
 
     def _hash(self):
@@ -35,6 +37,7 @@ class Hasher(object):
     def write(self):
         raise NotImplementedError
 
+
 class HashString(Hasher):
 
     def __init__(self, data, algorithms=[]):
@@ -44,6 +47,7 @@ class HashString(Hasher):
     def _hash(self, hasher):
         hasher.update(self.data)
         return hasher.hexdigest()
+
 
 class HashFile(Hasher):
 
@@ -60,7 +64,7 @@ class HashFile(Hasher):
                 hasher.update(buf)
                 buf = fh.read(BLOCKSIZE)
         return hasher.hexdigest()
- 
+
     @property
     def digest_lines(self):
         '''
@@ -81,9 +85,11 @@ class HashFile(Hasher):
 
 # UTILS
 
+
 def hash_file(path, algs=['md5', 'sha1', 'sha256']):
     hasher = HashFile(path, algorithms=algs)
     return hasher.digests
+
 
 def deb_hash_file(path):
     '''
@@ -93,10 +99,10 @@ def deb_hash_file(path):
     hashes = {'MD5sum': hasher.digests['md5'],
               'SHA1':  hasher.digests['sha1'],
               'SHA256':  hasher.digests['sha256'],
-            }
+              }
     return hashes
+
 
 def hash_string(data, algs=['md5', 'sha1', 'sha256']):
     hasher = HashString(data, algorithms=algs)
     return hasher.digests
-
