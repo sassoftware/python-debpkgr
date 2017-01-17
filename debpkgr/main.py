@@ -38,7 +38,7 @@ def deb_package(args=None):
 
     __version__ = '0.0.1'
     _usage = ('%(prog)s [options] pkg.deb\n')
-    _description = ("Debian Package Infromation Tool\n"
+    _description = ("Debian Package Information Tool\n"
                     "Python implementation of dpkg tools\n"
                     )
     _prog = "debpkg"
@@ -65,10 +65,10 @@ def deb_package(args=None):
                         default=False,
                         help="Return .deb Package File List")
 
-    parser.add_argument(
-        "-F", "--file-md5sums", dest="md5sums", action="store_true",
-        default=False,
-        help="Return .deb Package File List with MD5sums")
+    parser.add_argument( "-F", "--file-md5sums", dest="md5sums", 
+                        action="store_true",
+                        default=False,
+                        help="Return .deb Package File List with MD5sums")
 
     parser.add_argument("--md5sum", dest="md5sum", action="store_true",
                         default=False,
@@ -82,10 +82,20 @@ def deb_package(args=None):
                         default=False,
                         help="Return .deb Package sha256")
 
+    parser.add_argument("--debug", dest="debug", action="store_true",
+                        default=False,
+                        help="debug")
+
+
     parser.add_argument('debpkgs', nargs='?',
                         help="/path/to/pkg.deb pkg.deb... etc")
 
     args = parser.parse_args()
+
+    debug = args.debug
+    if debug:
+        from errors import debug_except_hook
+        sys.excepthook = debug_except_hook
 
     steps = {'md5sum': args.md5sum,
              'sha1': args.sha1,
@@ -111,6 +121,9 @@ def deb_package(args=None):
             sys.exit(1)
     else:
         files = args.debpkgs
+
+    if isinstance(files, str):
+        files = [ files ]
 
     packages = {}
 
@@ -163,6 +176,11 @@ def apt_indexer(args=None):
                         default="Apt Indexer Test Repo",
                         help="Specify apt repository description")
 
+    parser.add_argument("--debug", dest="debug", action="store_true",
+                        default=False,
+                        help="debug")
+
+
     parser.add_argument('files', nargs='?',
                         help="/path/to/pkg.deb pkg.deb... etc")
 
@@ -181,22 +199,40 @@ def apt_indexer(args=None):
     if True not in ops.values():
         ops['parse'] = True
 
+    debug = args.debug
+    if debug:
+        from errors import debug_except_hook
+        sys.excepthook = debug_except_hook
+
     files = []
 
     # if True not in steps.values():
     #    steps['package'] = True
 
+    if args.files:
+        files = args.files
+
+    if isinstance(files, str):
+        files = [ files ]
+
     if ops['create']:
-        if args.files:
-            files = args.files
-        else:
+        if not len(files):
             pool = 'pool/main'
-            files = [os.path.join(pool, x)
-                     for x in os.listdir(pool) if x.endswith('.deb')]
+            if os.path.exists(pool):
+                for root, _, f in os.walk(pool):
+                    for name in f:
+                        if name.endswith('.deb'):
+                            files.append(os.path.join(root, name))
+            else:
+                print("[ERROR] Can not find pool directory")
+                print("%s --help" % _prog)
+                sys.exit(1)
+
         if not len(files):
             print("[ERROR] No pool/main directory or *.deb supplied")
             print("%s --help" % _prog)
             sys.exit(1)
+
         create_repo(files, name=name, arches=arches, desc=description)
 
     if ops['parse']:
@@ -210,5 +246,3 @@ def apt_indexer(args=None):
                 index_repo(path)
 
 
-if __name__ == "__main__":
-    deb_package()
