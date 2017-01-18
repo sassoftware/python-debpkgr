@@ -93,6 +93,8 @@ class PkgTest(base.BaseTestCase):
             if name in package_md5sums:
                 self.assertEquals(package_md5sums[name], pkg.md5sums)
             if name in package_files:
+                self.assertEquals(sorted([x for x in package_files[name]]),
+                                  sorted([x for x in pkg.files]))
                 self.assertEquals(package_files[name], pkg.files)
             if name in package_data:
                 self.assertEquals(package_objects[name], pkg.package)

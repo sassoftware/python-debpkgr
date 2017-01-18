@@ -38,18 +38,43 @@ except Exception:
 
 from .hasher import deb_hash_file
 
+from future.moves.collections import UserList
 
-class DebPkgFiles(list):
 
-    def __new__(cls, data=[]):
-        obj = super(DebPkgFiles, cls).__new__(cls, data)
-        return obj
+class DebPkgFiles(UserList):
+
+    def __init__(self, *args, **kwargs):
+        super(DebPkgFiles, self).__init__(*args, **kwargs)
 
     def __repr__(self):
-        return 'DebPkgFiles(%s)' % list(self)
+        return 'DebPkgFiles(%s)' % sorted(self.data)
 
     def __str__(self):
-        return u"\n".join(list(self))
+        return u"\n".join(sorted(self.data))
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return sorted(self.__dict__) == sorted(other.__dict__)
+        elif isinstance(other, (list, tuple)):
+            return self.data == other
+        return False
+
+    def __ne__(self, other):
+        if isinstance(other, self.__class__):
+            return not self.__eq__(other)
+        return not self == other
+
+# class DebPkgFiles(list):
+#
+#    def __new__(cls, data=[]):
+#        obj = super(DebPkgFiles, cls).__new__(cls, data)
+#        return obj
+#
+#    def __repr__(self):
+#        return 'DebPkgFiles(%s)' % sorted(list(self))
+#
+#    def __str__(self):
+#        return u"\n".join(sorted(list(self)))
 
 
 class DebPkgMD5sums(deb822.Deb822):
@@ -59,8 +84,11 @@ class DebPkgMD5sums(deb822.Deb822):
 
     def __str__(self):
         results = u""
-        for k, v in self.items():
-            results += u"%s %s\n" % (k, v)
+        keys = sorted([x for x in self.keys()])
+        for k in keys:
+            results += u"{0} {1}\n".format(k, self.get(k))
+        # for k, v in self.items():
+        #    results += u"%s %s\n" % (k, v)
         return results
 
 
