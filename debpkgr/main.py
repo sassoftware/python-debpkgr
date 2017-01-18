@@ -1,13 +1,19 @@
-#!/usr/bin/env python
+#
+# Copyright (c) SAS Institute Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
-'''
-Python implementation to extract info from .deb
-
-If it fails you get to keep the pieces
-
-pip install python-debian chardet
-
-'''
 
 import os
 import sys
@@ -28,15 +34,16 @@ except Exception:
           "pip install - -upgrade python - debian chardet\n")
     sys.exit()
 
-from debpkg import DebPkg
-from aptrepo import create_repo
-from aptrepo import index_repo
-from aptrepo import parse_repo
+from debpkgr.debpkg import DebPkg
+from debpkgr.aptrepo import create_repo
+from debpkgr.aptrepo import index_repo
+from debpkgr.aptrepo import parse_repo
 
+from debpkgr.constants import __version__ as VERSION
 
 def deb_package(args=None):
 
-    __version__ = '0.0.1'
+    __version__ = VERSION
     _usage = ('%(prog)s [options] pkg.deb\n')
     _description = ("Debian Package Information Tool\n"
                     "Python implementation of dpkg tools\n"
@@ -93,7 +100,7 @@ def deb_package(args=None):
 
     debug = args.debug
     if debug:
-        from errors import debug_except_hook
+        from debpkgr.errors import debug_except_hook
         sys.excepthook = debug_except_hook
 
     steps = {'md5sum': args.md5sum,
@@ -140,7 +147,7 @@ def deb_package(args=None):
 
 def apt_indexer(args=None):
 
-    __version__ = '0.0.1'
+    __version__ = VERSION
     _usage = ('%(prog)s [options] /path/*.deb\n')
     _description = ("Apt Repository Creation Tool\n"
                     "Python implementation of apt repo tools\n"
@@ -201,7 +208,7 @@ def apt_indexer(args=None):
 
     debug = args.debug
     if debug:
-        from errors import debug_except_hook
+        from debpkgr.errors import debug_except_hook
         sys.excepthook = debug_except_hook
 
     files = []
