@@ -26,17 +26,18 @@ pip install python-debian chardet
 
 from __future__ import absolute_import
 from __future__ import division
-from __future__ import print_function
 from __future__ import unicode_literals
 
-
+import logging
 import sys
+
+log = logging.getLogger(__name__)
 
 try:
     from debian import debfile
     from debian import deb822
 except Exception:
-    print(
+    log.error(
         "[ERROR] Failed to import debian\n"
         "pip install python-debian chardet\n")
     sys.exit()
@@ -45,7 +46,7 @@ try:
     # Can't check version so need to support xz
     assert 'xz' in debfile.PART_EXTS
 except Exception:
-    print(
+    log.error(
         "[ERROR] python-debian missing xz support\n"
         "pip install --upgrade python-debian chardet\n")
     sys.exit()
@@ -53,7 +54,7 @@ except Exception:
 
 from .hasher import deb_hash_file
 
-from future.moves.collections import UserList
+from six.moves import UserList
 
 
 class DebPkgFiles(UserList):
@@ -111,14 +112,12 @@ class DebPkg(object):
     __slots__ = ("_c", "_h", "_md5")
 
     def __init__(self, control, hashes, md5sums):
-        if isinstance(control, deb822.Deb822):
-            self._c = control
-        else:
-            self._c = deb822.Deb822(control)
-        if isinstance(hashes, deb822.Deb822):
-            self._h = hashes
-        else:
-            self._h = deb822.Deb822(hashes)
+        if isinstance(control, dict):
+            control = deb822.Deb822(control)
+        self._c = control
+        if isinstance(hashes, dict):
+            hashes = deb822.Deb822(hashes)
+        self._h = hashes
         if isinstance(md5sums, DebPkgMD5sums):
             self._md5 = md5sums
         else:

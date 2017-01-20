@@ -41,6 +41,7 @@ from debpkgr.aptrepo import parse_repo
 
 from debpkgr.constants import __version__ as VERSION
 
+
 def deb_package(args=None):
 
     __version__ = VERSION

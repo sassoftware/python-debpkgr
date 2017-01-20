@@ -19,8 +19,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import os
-
 from collections import namedtuple
 
 from debpkgr import hasher
@@ -39,7 +37,7 @@ class HasherTests(base.BaseTestCase):
 
     def setUp(self):
         base.BaseTestCase.setUp(self)
-        self.data = u"Unchained, yeah ya hit the ground running"
+        self.data = "Unchained, yeah ya hit the ground running"
         self.expected = {'sha256':
                          'b96eda7b0c56640a48644ae1651129d496aa25934ed9'
                          '2dc7b597f927c37e80b8',
@@ -53,19 +51,33 @@ class HasherTests(base.BaseTestCase):
         tests = [HashData(self.data, self.algs, self.expected)]
 
         for td in tests:
-            filename = os.path.join(self.test_dir, "hash_test.txt")
-            with open(filename, 'w') as fh:
-                fh.write(self.data)
+            filename = self.mkfile("hash_test.txt", contents=td.data)
             self.assertEqual(td.expected, hasher.hash_file(filename, td.algs))
+
+    def test_HashFile_lines(self):
+        filename = self.mkfile("deb_hash_test.txt", contents=self.data)
+        exp_lines = [
+            "Md5 (deb_hash_test.txt) = %s" % self.expected['md5'],
+            "Sha1 (deb_hash_test.txt) = %s" % self.expected['sha1'],
+        ]
+        hf = hasher.HashFile(filename, algorithms=["md5", "sha1"])
+        # Test digest_lines
+        self.assertEquals(exp_lines, hf.digest_lines)
+
+        # Test write = we expect an empty line at the end, because of the
+        # trailing newline
+        hf.write()
+        digfile = filename + '.chksums'
+        contents = open(digfile).read().split('\n')
+
+        self.assertEquals(exp_lines + [""], contents)
 
     def test_debian_hash_from_file(self):
 
         tests = [HashData(self.data, self.algs, self.expected)]
 
         for td in tests:
-            filename = os.path.join(self.test_dir, "deb_hash_test.txt")
-            with open(filename, 'w') as fh:
-                fh.write(self.data)
+            filename = self.mkfile("deb_hash_test.txt", contents=td.data)
             digests = hasher.deb_hash_file(filename)
             for k, v in digests.items():
                 self.assertEqual(td.expected[self.debian_keys[k]], v)
@@ -80,3 +92,21 @@ class HasherTests(base.BaseTestCase):
         ]
         for td in tests:
             self.assertEqual(td.expected, hasher.hash_string(td.data, td.algs))
+
+    def test_hasher_update_invalidates_digest(self):
+        # Make sure that we recalculate the digest after an update
+        ho = hasher.Hasher(algorithms="md5")
+        ho.update(b"a")
+        self.assertEquals(dict(md5="0cc175b9c0f1b6a831c399e269772661"),
+                          ho.digests)
+        ho.update(b"b")
+        self.assertEquals(dict(md5="187ef4436122d1cc2f40dc2b92f0eba0"),
+                          ho.digests)
+
+    @base.mock.patch("debpkgr.hasher.hashlib")
+    def test_hasher_algorithms_guaranteed(self, _hashlib):
+        # Debian's python 2.7.6 does not have algorithms_guaranteeed
+        del _hashlib.algorithms_guaranteed
+        _hashlib.algorithms = ["a", "b"]
+        ho = hasher.Hasher(algorithms="md5")
+        self.assertEquals(["a", "b"], ho._available_algorithms())

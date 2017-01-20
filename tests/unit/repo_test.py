@@ -19,11 +19,11 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import os
 import time
 from io import BytesIO
 
-from debpkgr.aptrepo import AptRepoMeta
-from debpkgr.aptrepo import AptRepo
+from debpkgr.aptrepo import AptRepoMeta, AptRepo, create_repo
 from tests import base
 
 
@@ -71,7 +71,7 @@ class RepoTest(base.BaseTestCase):
                          'releases': {},
                          }
 
-        self.files = ['foo_0.0.1-1_amd64.deb',
+        file_names = ['foo_0.0.1-1_amd64.deb',
                       'foo_0.0.1-1_i386.deb',
                       'foo_0.0.1-1_aarch64.deb',
                       'bar_0.1.1-1_amd64.deb',
@@ -81,6 +81,7 @@ class RepoTest(base.BaseTestCase):
                       'buz_0.2.1-1_i386.deb',
                       'buz_0.2.1-1_aarch64.deb',
                       ]
+        self.files = [self.mkfile(x, contents=x) for x in file_names]
 
         self.hashdict = [{'md5sum': ['62dfc288d6b0dee2b157b6de1ad8db3a',
                                      '538',
@@ -179,9 +180,28 @@ class RepoTest(base.BaseTestCase):
 
         # assert release_content == False
 
-    def X_test_repo(self):
+    @base.mock.patch("debpkgr.aptrepo.debpkg.debfile")
+    def test_AptRepo_create(self, _debfile):
         blacklist = ['origin', 'label']
         defaults = dict((k, v) for k, v in self.defaults.items()
                         if k not in blacklist)
-        repo = AptRepo(self.new_repo_dir, self.name, defaults)
-        print(repo.name)
+        defaults['components'] = ['main']
+        repo = AptRepo(self.new_repo_dir, self.name, **defaults)
+        self.assertEquals(repo.repo_name, self.name)
+        repo.create(self.files, with_symlinks=True)
+
+        pool_files = [os.path.join(self.new_repo_dir, "pool", "main",
+                                   os.path.basename(x))
+                      for x in sorted(self.files)]
+        self.assertEquals(
+            [base.mock.call(filename=x) for x in pool_files],
+            _debfile.DebFile.call_args_list)
+
+    @base.mock.patch("debpkgr.aptrepo.AptRepo")
+    def test_repo_create(self, _AptRepo):
+        repo = create_repo(self.new_repo_dir, self.files,
+                           name=self.name)
+        self.assertEquals(_AptRepo.return_value, repo)
+        _AptRepo.assert_called_once_with(self.new_repo_dir, self.name,
+                                         architectures=None, description=None)
+        repo.create.assert_called_once_with(self.files)

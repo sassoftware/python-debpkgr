@@ -23,13 +23,17 @@ pip install python-debian chardet
 
 '''
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
+import inspect
+import logging
 import os
 import shutil
 import time
 import gzip
 import bz2
 import tempfile
-
 
 from debian import deb822
 
@@ -39,7 +43,7 @@ from .hasher import hash_file
 
 REPO_VERSION = '1.0'
 
-import inspect
+log = logging.getLogger(__name__)
 
 
 class BaseModel(object):
@@ -200,7 +204,7 @@ class AptRepo(object):
         files = {}
         index = len(path.split(os.sep))
         for root, _, f in os.walk(path):
-            for name in f:
+            for name in sorted(f):
                 if name.startswith('Package'):
                     full_path = os.path.join(root, name)
                     short_path = os.sep.join(full_path.split(os.sep)[index:])
@@ -219,7 +223,7 @@ class AptRepo(object):
     def _find_archive_files(self, path):
         files = {}
         for root, _, f in os.walk(path):
-            for name in f:
+            for name in sorted(f):
                 if name.endswith('.deb'):
                     fp = os.path.join(root, name)
                     pkg = debpkg.DebPkg.from_file(fp)
@@ -255,19 +259,19 @@ class AptRepo(object):
             raise err.args[0]
 
     def index(self):
-        print("Indexing %s" % self.metadata.codename)
+        log.debug("Indexing %s", self.metadata.codename)
 
         for pool in self._prefixes(self.metadata.pools):
             file_list = self._find_archive_files(pool)
-            print("Processing Archives:\n")
+            log.debug("Processing Archives:")
             for f in file_list:
-                print(f)
+                log.debug(f)
 
         for path in self._prefixes(self.metadata.bindirs):
             bindir = os.path.basename(path)
             arch = bindir.split('-')[-1]
             component = path.split(os.sep)[-2]
-            print("Processing {0} with arch {1}".format(bindir, arch))
+            log.debug("Processing {0} with arch {1}".format(bindir, arch))
             # FIXME use mktemp
             packages_content = ""
             for name, pkg in self.metadata.archives.items():
@@ -300,19 +304,20 @@ class AptRepo(object):
 
         # FIXME Sign the Release file
 
-    def create(self, files, symlinks=False):
+    def create(self, files, with_symlinks=False):
         dirs = []
         for d in self._prefixes(self.metadata.directories):
             dirs.append(utils.makedirs(d))
         if files:
             for pool in self._prefixes(self.metadata.pools):
                 for f in files:
-                    if symlinks:
-                        # TODO Make symlinks
-                        print("Using symlinks")
+                    dst = os.path.join(pool, os.path.basename(f))
+                    if with_symlinks:
+                        log.debug("Using symlinks")
+                        os.symlink(f, dst)
                     else:
-                        print("Copying file")
-                        shutil.copy(f, pool)
+                        log.debug("Copying file")
+                        shutil.copy(f, dst)
         self.index()
         return
 

@@ -31,7 +31,7 @@ Create Repo
  name = 'test_repo_foo'
  arches = ['amd64', 'i386']
  description = 'Apt repository for Test Repo Foo'
-        
+
  files = []
  for root, _, fl in os.walk(temp_dir):
      for f in fl:
@@ -91,7 +91,7 @@ Install
   ``pip install debpkgr -i https://svcartifact.unx.sas.com/artifactory/api/pypi/pypi/simple``
 
 
-:Authors: 
+:Authors:
     Brett Smith
 
-:Version: 0.0.1 
+:Version: 0.0.1

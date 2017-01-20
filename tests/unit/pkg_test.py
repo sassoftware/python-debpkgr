@@ -93,7 +93,8 @@ class PkgTest(base.BaseTestCase):
         for k, v in self.attrs_data.items():
             self.assertEquals(getattr(pkg, k), v)
         self.assertEquals(pkg.package, self.package_obj)
-        # assert pkg == False
+        self.assertTrue(isinstance(pkg.control, deb822.Deb822))
+        self.assertTrue(isinstance(pkg.hashes, deb822.Deb822))
 
     def test_pkg_md5sums(self):
         md5sums = DebPkgMD5sums(self.md5sum_data)
