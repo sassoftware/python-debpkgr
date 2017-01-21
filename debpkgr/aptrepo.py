@@ -112,7 +112,7 @@ class AptRepoMeta(BaseModel):
                  'description': 'Foo Description',
                  'codename': 'stable',
                  'components': ['main'],
-                 'architectures': ['amd64'],
+                 'architectures': ['amd64', 'i386'],
                  'archives': {},  # path : deb822 pkg
                  'packages': {},
                  'releases': {},
