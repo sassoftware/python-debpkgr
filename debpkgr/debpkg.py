@@ -66,7 +66,7 @@ class DebPkgFiles(UserList):
         return 'DebPkgFiles(%s)' % sorted(self.data)
 
     def __str__(self):
-        return u"\n".join(sorted(self.data))
+        return "\n".join(sorted(self.data))
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -131,7 +131,7 @@ class DebPkg(object):
 
     @property
     def package(self):
-        package = self._c
+        package = self._c.copy()
         package.update(self._h)
         return package
 
@@ -193,9 +193,14 @@ class DebPkg(object):
         return deb_hash_file(path)
 
     @classmethod
-    def from_file(cls, path):
+    def from_file(cls, path, **kwargs):
+        """
+        Allows for fields (like Filename and Size) to be added or replaced
+        using keyword arguments.
+        """
         debpkg = debfile.DebFile(filename=path)
         md5sums = debpkg.md5sums(encoding='utf-8')
-        control = debpkg.control.debcontrol()
+        control = debpkg.control.debcontrol().copy()
         hashes = cls.make_hashes(path)
+        control.update(kwargs)
         return cls(control, hashes, md5sums)

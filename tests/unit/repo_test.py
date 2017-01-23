@@ -196,6 +196,23 @@ class RepoTest(base.BaseTestCase):
         self.assertEquals(
             [base.mock.call(filename=x) for x in pool_files],
             _debfile.DebFile.call_args_list)
+        # Make sure Filename was part of the debcontrol
+        debcontrol = _debfile.DebFile.return_value.control.debcontrol
+        self.assertEquals(
+            [base.mock.call(dict(
+                Filename=os.path.join('pool', 'main', os.path.basename(x)),
+                Size=str(os.stat(x).st_size)))
+             for x in pool_files],
+            debcontrol.return_value.copy.return_value.update.call_args_list)
+
+        # Make sure we have some (empty) Packages files
+        dist_dir = os.path.join(self.new_repo_dir, "dists", "stable", "main")
+        for arch in ['aarch64', 'amd64', 'i386']:
+            self.assertEquals(
+                1,
+                os.stat(os.path.join(dist_dir,
+                                     'binary-%s' % arch,
+                                     'Packages')).st_size)
 
     @base.mock.patch("debpkgr.aptrepo.AptRepo")
     def test_repo_create(self, _AptRepo):

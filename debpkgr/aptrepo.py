@@ -220,13 +220,21 @@ class AptRepo(object):
         self.metadata.packages = files
         return files
 
-    def _find_archive_files(self, path):
+    def _find_archive_files(self, relpath):
+        path = self._prefix(relpath)
+        # Collect the lead (usually self.base_path)
+        lead = path[:-len(relpath)].rstrip(os.sep)
+        # Skip over trailing backslash
+        lead_len = len(lead) + 1
         files = {}
         for root, _, f in os.walk(path):
             for name in sorted(f):
                 if name.endswith('.deb'):
                     fp = os.path.join(root, name)
-                    pkg = debpkg.DebPkg.from_file(fp)
+                    Filename = fp[lead_len:]
+                    sz = str(os.stat(fp).st_size)
+                    pkg = debpkg.DebPkg.from_file(fp, Filename=Filename,
+                                                  Size=sz)
                     self.metadata.archives.setdefault(fp, pkg)
         return files
 
@@ -238,22 +246,24 @@ class AptRepo(object):
         overrides_file.write(overrides_content)
         return overrides_file
 
-    def _write_packages_files(self, path, content):
+    def _write_packages_files(self, path, packages):
         package_file = os.path.join(path, 'Packages')
         package_file_gz = os.path.join(path, 'Packages.gz')
         package_file_bz2 = os.path.join(path, 'Packages.bz2')
         try:
-            with open(package_file, 'w') as pfh:
-                pfh.write(content)
+            with open(package_file, 'wb') as pfh:
+                for pkg in packages:
+                    pkg.dump(pfh)
+                pfh.write(b"\n")
         except IOError as err:
             raise err.args[0]
         try:
             with open(package_file, 'rb') as fhi:
                 with gzip.open(package_file_gz, 'wb') as fhgz:
                     shutil.copyfileobj(fhi, fhgz)
+                fhi.seek(0)
                 with bz2.BZ2File(package_file_bz2,
                                  'wb', compresslevel=9) as fhbz:
-                    fhi.seek(0)
                     shutil.copyfileobj(fhi, fhbz)
         except IOError as err:
             raise err.args[0]
@@ -261,7 +271,7 @@ class AptRepo(object):
     def index(self):
         log.debug("Indexing %s", self.metadata.codename)
 
-        for pool in self._prefixes(self.metadata.pools):
+        for pool in self.metadata.pools:
             file_list = self._find_archive_files(pool)
             log.debug("Processing Archives:")
             for f in file_list:
@@ -273,10 +283,10 @@ class AptRepo(object):
             component = path.split(os.sep)[-2]
             log.debug("Processing {0} with arch {1}".format(bindir, arch))
             # FIXME use mktemp
-            packages_content = ""
+            packages_content = []
             for name, pkg in self.metadata.archives.items():
                 if pkg.arch == arch:
-                    packages_content += str(pkg.package) + "\n"
+                    packages_content.append(pkg.package)
 
             self._write_packages_files(path, packages_content)
 

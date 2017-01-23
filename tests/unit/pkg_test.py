@@ -92,7 +92,13 @@ class PkgTest(base.BaseTestCase):
         pkg = DebPkg(self.control_data, self.md5sum_data, self.hashes_data)
         for k, v in self.attrs_data.items():
             self.assertEquals(getattr(pkg, k), v)
+        # Make sure the hashes are not part of the control file
+        for k in pkg.hashes:
+            self.assertFalse(k in pkg._c)
         self.assertEquals(pkg.package, self.package_obj)
+        # Make sure the hashes are still not part of the control file
+        for k in pkg.hashes:
+            self.assertFalse(k in pkg._c)
         self.assertTrue(isinstance(pkg.control, deb822.Deb822))
         self.assertTrue(isinstance(pkg.hashes, deb822.Deb822))
 
@@ -112,3 +118,23 @@ class PkgTest(base.BaseTestCase):
         self.assertEquals(str(files), self.files_string)
         self.assertNotEquals(str(files), self.files_string_bad)
         # assert files == False
+
+    @base.mock.patch("debpkgr.debpkg.debfile.DebFile")
+    def test_pkg_from_file(self, _DebFile):
+        meta = dict(package="a", version="1", architecture="amd64")
+        _DebFile.return_value.control.debcontrol.return_value = meta
+        dp = DebPkg.from_file("/dev/null")
+        # Let's convert the rfc822 format to a dict
+        lines = str(dp.package).split('\n')
+        ldict = dict((x, z) for (x, y, z) in
+                     (line.partition(': ') for line in lines))
+        # Make sure the original dict is included
+        for k, v in meta.items():
+            self.assertEquals(v, ldict[k])
+
+    @base.mock.patch("debpkgr.debpkg.debfile.DebFile")
+    def test_pkg_from_file_with_Filename(self, _DebFile):
+        _DebFile.return_value.control.debcontrol.return_value = {}
+        Filename = "pool/comp/a_1.deb"
+        dp = DebPkg.from_file("/dev/null", Filename=Filename)
+        self.assertEquals(Filename, dp._c['Filename'])
