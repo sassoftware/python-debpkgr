@@ -254,7 +254,7 @@ class AptRepo(object):
             with open(package_file, 'wb') as pfh:
                 for pkg in packages:
                     pkg.dump(pfh)
-                pfh.write(b"\n")
+                    pfh.write(b"\n")
         except IOError as err:
             raise err.args[0]
         try:
@@ -279,12 +279,11 @@ class AptRepo(object):
 
         for path in self._prefixes(self.metadata.bindirs):
             bindir = os.path.basename(path)
-            arch = bindir.split('-')[-1]
+            arch = bindir.partition('-')[-1]
             component = path.split(os.sep)[-2]
             log.debug("Processing {0} with arch {1}".format(bindir, arch))
-            # FIXME use mktemp
             packages_content = []
-            for name, pkg in self.metadata.archives.items():
+            for name, pkg in sorted(self.metadata.archives.items()):
                 if pkg.arch == arch:
                     packages_content.append(pkg.package)
 

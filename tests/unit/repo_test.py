@@ -23,7 +23,7 @@ import os
 import time
 from io import BytesIO
 
-from debpkgr.aptrepo import AptRepoMeta, AptRepo, create_repo
+from debpkgr.aptrepo import AptRepoMeta, AptRepo, create_repo, deb822
 from tests import base
 
 
@@ -182,37 +182,67 @@ class RepoTest(base.BaseTestCase):
 
     @base.mock.patch("debpkgr.aptrepo.debpkg.debfile")
     def test_AptRepo_create(self, _debfile):
+        D = deb822.Deb822
+        # We need to reorder the files alphabetically, so the way os.walk
+        # finds them is the same as the mock we're setting up
+        Files = [
+            (D(dict(Package="bar", Architecture="aarch64", Version="0.1.1",
+                    Release="1")), self.files[5]),
+            (D(dict(Package="bar", Architecture="amd64", Version="0.1.1",
+                    Release="1")), self.files[3]),
+            (D(dict(Package="bar", Architecture="i386", Version="0.1.1",
+                    Release="1")), self.files[4]),
+            (D(dict(Package="foo", Architecture="aarch64", Version="0.1.1",
+                    Release="1")), self.files[2]),
+            (D(dict(Package="foo", Architecture="amd64", Version="0.1.1",
+                    Release="1")), self.files[0]),
+            (D(dict(Package="foo", Architecture="i386", Version="0.1.1",
+                    Release="1")), self.files[1]),
+        ]
+        pkgs = [x[0] for x in Files]
+        debcontrol = _debfile.DebFile.return_value.control.debcontrol
+        debcontrol.return_value.copy.side_effect = pkgs
+
         blacklist = ['origin', 'label']
         defaults = dict((k, v) for k, v in self.defaults.items()
                         if k not in blacklist)
         defaults['components'] = ['main']
+        defaults['architectures'] = ['amd64', 'i386']
         repo = AptRepo(self.new_repo_dir, self.name, **defaults)
         self.assertEquals(repo.repo_name, self.name)
-        repo.create(self.files, with_symlinks=True)
+        repo.create([x[1] for x in Files], with_symlinks=True)
 
         pool_files = [os.path.join(self.new_repo_dir, "pool", "main",
                                    os.path.basename(x))
-                      for x in sorted(self.files)]
+                      for x in sorted(y[1] for y in Files)]
         self.assertEquals(
             [base.mock.call(filename=x) for x in pool_files],
             _debfile.DebFile.call_args_list)
-        # Make sure Filename was part of the debcontrol
-        debcontrol = _debfile.DebFile.return_value.control.debcontrol
+        # Make sure Size and Filename are part of the debcontrol
+        # The contents of the files are the filenames, so it is easy to check
+        # the file size
         self.assertEquals(
-            [base.mock.call(dict(
-                Filename=os.path.join('pool', 'main', os.path.basename(x)),
-                Size=str(os.stat(x).st_size)))
-             for x in pool_files],
-            debcontrol.return_value.copy.return_value.update.call_args_list)
+            [(os.path.join("pool", "main", os.path.basename(x)),
+              str(len(os.path.basename(x))))
+             for x in sorted(y[1] for y in Files)],
+            [(x[0]['Filename'], x[0]['Size']) for x in Files])
 
-        # Make sure we have some (empty) Packages files
+        # Make sure we have some Packages files
         dist_dir = os.path.join(self.new_repo_dir, "dists", "stable", "main")
-        for arch in ['aarch64', 'amd64', 'i386']:
+        self.assertFalse(os.path.exists(
+            os.path.join(dist_dir, 'binary-aarch64')))
+        for exp, arch, idx in [(544, 'amd64', [1, 4]), (540, 'i386', [2, 5])]:
+            path = os.path.join(dist_dir, 'binary-%s' % arch, 'Packages')
             self.assertEquals(
-                1,
-                os.stat(os.path.join(dist_dir,
-                                     'binary-%s' % arch,
-                                     'Packages')).st_size)
+                exp,
+                os.stat(path).st_size)
+            pkgs = [x for x in D.iter_paragraphs(open(path, "rb"))]
+
+            exp_filenames = [
+                os.path.join("pool", "main", os.path.basename(Files[i][1]))
+                for i in idx]
+
+            self.assertEquals(exp_filenames, [x['Filename'] for x in pkgs])
 
     @base.mock.patch("debpkgr.aptrepo.AptRepo")
     def test_repo_create(self, _AptRepo):
