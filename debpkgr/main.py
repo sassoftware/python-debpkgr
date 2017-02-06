@@ -38,18 +38,18 @@ from debpkgr.debpkg import DebPkg
 from debpkgr.aptrepo import create_repo
 from debpkgr.aptrepo import index_repo
 from debpkgr.aptrepo import parse_repo
-
+from debpkgr.utils import makedirs
 from debpkgr.constants import __version__ as VERSION
 
 
-def deb_package(args=None):
+def deb_package():
 
     __version__ = VERSION
     _usage = ('%(prog)s [options] pkg.deb\n')
     _description = ("Debian Package Information Tool\n"
                     "Python implementation of dpkg tools\n"
                     )
-    _prog = "debpkg"
+    _prog = "deb_package"
 
     parser = argparse.ArgumentParser(version="%(prog)s " + __version__,
                                      description=_description,
@@ -94,7 +94,7 @@ def deb_package(args=None):
                         default=False,
                         help="debug")
 
-    parser.add_argument('debpkgs', nargs='?',
+    parser.add_argument('debpkgs', nargs='+',
                         help="/path/to/pkg.deb pkg.deb... etc")
 
     args = parser.parse_args()
@@ -137,7 +137,10 @@ def deb_package(args=None):
     packages = {}
 
     for fpath in files:
-        pkg = DebPkg.from_file(fpath)
+        Filename = os.path.basename(fpath)
+        sz = str(os.stat(fpath).st_size)
+        pkg = DebPkg.from_file(fpath, Filename=Filename,
+                               Size=sz)
         packages.setdefault(pkg.name, pkg)
 
     for name, pkg in packages.items():
@@ -146,7 +149,7 @@ def deb_package(args=None):
                 print(getattr(pkg, step))
 
 
-def apt_indexer(args=None):
+def apt_indexer():
 
     __version__ = VERSION
     _usage = ('%(prog)s [options] /path/*.deb\n')
@@ -173,8 +176,18 @@ def apt_indexer(args=None):
                         default=False,
                         help="Parse apt repository metadata")
 
+    parser.add_argument(
+        "-s", "--symlinks", dest="symlinks", action="store_true",
+        default=False,
+        help="Use symlinks instead of copying files")
+
+    parser.add_argument(
+        "-d", "--destination", dest="destination", action="store",
+        default=None,
+        help="Specify apt repository location")
+
     parser.add_argument("-n", "--name", dest="name", action="store",
-                        default="stable",
+                        default="apt_repo",
                         help="Specify apt repository name")
 
     parser.add_argument("-a", "--arches", dest="arches", action="store",
@@ -189,7 +202,7 @@ def apt_indexer(args=None):
                         default=False,
                         help="debug")
 
-    parser.add_argument('files', nargs='?',
+    parser.add_argument('files', nargs='*',
                         help="/path/to/pkg.deb pkg.deb... etc")
 
     args = parser.parse_args()
@@ -200,9 +213,14 @@ def apt_indexer(args=None):
         'parse': args.parse,
     }
 
-    name = args.name,
-    arches = args.arches,
+    name = args.name
+    arches = args.arches
     description = args.desc
+    symlinks = args.symlinks
+    destination = args.destination
+    if destination is None:
+        destination = os.getcwd()
+    makedirs(destination)
 
     if True not in ops.values():
         ops['parse'] = True
@@ -228,9 +246,9 @@ def apt_indexer(args=None):
             pool = 'pool/main'
             if os.path.exists(pool):
                 for root, _, f in os.walk(pool):
-                    for name in f:
-                        if name.endswith('.deb'):
-                            files.append(os.path.join(root, name))
+                    for fn in f:
+                        if fn.endswith('.deb'):
+                            files.append(os.path.join(root, fn))
             else:
                 print("[ERROR] Can not find pool directory")
                 print("%s --help" % _prog)
@@ -241,7 +259,8 @@ def apt_indexer(args=None):
             print("%s --help" % _prog)
             sys.exit(1)
 
-        create_repo(files, name=name, arches=arches, desc=description)
+        create_repo(destination, files, name=name,
+                    arches=arches, desc=description, with_symlinks=symlinks)
 
     if ops['parse']:
         for path in files:

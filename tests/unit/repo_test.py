@@ -164,19 +164,19 @@ class RepoTest(base.BaseTestCase):
         for k, v in self.sha1sums.items():
             for x in repo_release_content[k]:
                 self.assertTrue(x['sha1'] in [y['sha1']
-                                for y in self.sha1sums[k]])
+                                              for y in self.sha1sums[k]])
                 self.assertTrue(x['size'] in [y['size']
-                                for y in self.sha1sums[k]])
+                                              for y in self.sha1sums[k]])
                 self.assertTrue(x['name'] in [y['name']
-                                for y in self.sha1sums[k]])
+                                              for y in self.sha1sums[k]])
         for k, v in self.md5sums.items():
             for x in repo_release_content[k]:
                 self.assertTrue(x['md5sum'] in [y['md5sum']
-                                for y in self.md5sums[k]])
+                                                for y in self.md5sums[k]])
         for k, v in self.sha256sums.items():
             for x in repo_release_content[k]:
                 self.assertTrue(x['sha256'] in [y['sha256']
-                                for y in self.sha256sums[k]])
+                                                for y in self.sha256sums[k]])
 
         # assert release_content == False
 
@@ -245,10 +245,11 @@ class RepoTest(base.BaseTestCase):
             self.assertEquals(exp_filenames, [x['Filename'] for x in pkgs])
 
     @base.mock.patch("debpkgr.aptrepo.AptRepo")
-    def test_repo_create(self, _AptRepo):
-        repo = create_repo(self.new_repo_dir, self.files,
-                           name=self.name)
-        self.assertEquals(_AptRepo.return_value, repo)
-        _AptRepo.assert_called_once_with(self.new_repo_dir, self.name,
-                                         architectures=None, description=None)
-        repo.create.assert_called_once_with(self.files)
+    @base.mock.patch("debpkgr.aptrepo.AptRepo.create")
+    def test_repo_create(self, _AptRepo, _create):
+        repo = create_repo(self.new_repo_dir, self.files, name=self.name,
+                           arches=None, desc=None, with_symlinks=False)
+        self.assertEquals(_create.return_value, repo)
+        _create.assert_called_once_with(self.new_repo_dir, self.name,
+                                        architectures=None, description=None)
+        repo.create.assert_called_once_with(self.files, with_symlinks=False)

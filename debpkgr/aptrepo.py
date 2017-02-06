@@ -323,6 +323,12 @@ class AptRepo(object):
                     dst = os.path.join(pool, os.path.basename(f))
                     if with_symlinks:
                         log.debug("Using symlinks")
+                        if os.path.exists(dst):
+                            if os.path.islink(dst):
+                                log.debug("Skipping link exists : %s" % dst)
+                            else:
+                                log.debug("Real file exists : %s" % dst)
+                            continue
                         os.symlink(f, dst)
                     else:
                         log.debug("Copying file")
@@ -342,13 +348,16 @@ class AptRepo(object):
         pass
 
 
-def create_repo(path, files, name=None, arches=None, desc=None):
+def create_repo(path, files, name=None,
+                arches=None, desc=None, with_symlinks=False):
     if arches is not None:
         if isinstance(arches, str):
             arches = [arches]
+        if not len(arches):
+            arches = None
     repo = AptRepo(path, name, architectures=arches,
                    description=desc)
-    repo.create(files)
+    repo.create(files, with_symlinks=with_symlinks)
     return repo
 
 
