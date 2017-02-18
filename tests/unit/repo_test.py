@@ -21,7 +21,10 @@ from __future__ import unicode_literals
 
 import os
 import time
+from datetime import datetime, timedelta, tzinfo
 from io import BytesIO
+
+from six import PY3
 
 from debpkgr.aptrepo import AptRepoMeta, AptRepo, create_repo, deb822
 from tests import base
@@ -31,6 +34,32 @@ class MockBytesIO(BytesIO):
 
     def close(self):
         pass
+
+
+class FixedOffset(tzinfo):
+
+    """Fixed offset in minutes: `time = utc_time + utc_offset`."""
+
+    def __init__(self, offset):
+        self.__offset = timedelta(minutes=offset)
+        hours, minutes = divmod(offset, 60)
+        # NOTE: the last part is to remind about
+        #  deprecated POSIX GMT+h timezones
+        #  that have the opposite sign in the name;
+        #  the corresponding numeric value is not used e.g., no minutes
+        self.__name = '<%+03d%02d>%+d' % (hours, minutes, -hours)
+
+    def utcoffset(self, dt=None):
+        return self.__offset
+
+    def tzname(self, dt=None):
+        return self.__name
+
+    def dst(self, dt=None):
+        return timedelta(0)
+
+    def __repr__(self):
+        return 'FixedOffset(%d)' % (self.utcoffset().total_seconds() / 60)
 
 
 class RepoTest(base.BaseTestCase):
@@ -44,7 +73,7 @@ class RepoTest(base.BaseTestCase):
         self.description = 'Apt repository for Unit Test Repo Foo'
         self.timestamp = time.strftime('%a, %d %b %Y %H:%M:%S %z')
 
-        self.date_format = u'Mon Jan 22:17:18 EST 2017'
+        self.date_format = u'Sat, 02 Jul 2016 05:20:50 +0000'
 
         self.repodir = u'dists/stable'
 
@@ -178,8 +207,24 @@ class RepoTest(base.BaseTestCase):
                 self.assertTrue(x['sha256'] in [y['sha256']
                                                 for y in self.sha256sums[k]])
 
-        # assert release_content == False
+        # Because Python2 does not support %z
+        test_date = repo_release_content['Date']
+        if PY3:
+            time.strptime(test_date, '%a, %d %b %Y %H:%M:%S %z')
+            self.assert_(True)
+        else:
+            test_date_str, _, test_offset_str = test_date.rpartition(' ')
+            test_dt = datetime.strptime(test_date_str, '%a, %d %b %Y %H:%M:%S')
+            offset = int(test_offset_str[-4:-2]) * 60 + int(
+                test_offset_str[-2:])
+            if test_offset_str[0] == "-":
+                offset = -offset
+            test_dt = test_dt.replace(tzinfo=FixedOffset(offset))
+            self.assertEquals(
+                test_date,
+                test_dt.strftime('%a, %d %b %Y %H:%M:%S %z'))
 
+        # assert release_content == False
     @base.mock.patch("debpkgr.aptrepo.debpkg.debfile")
     def test_AptRepo_create(self, _debfile):
         D = deb822.Deb822

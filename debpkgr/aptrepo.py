@@ -161,7 +161,7 @@ class AptRepoMeta(BaseModel):
                    'Label': self.label,
                    'Description': self.description,
                    'Architectures': ' '.join(self.architectures),
-                   'Date': time.strftime('%a %b %T %Z %Y'),
+                   'Date': time.strftime('%a, %d %b %Y %H:%M:%S %z'),
                    }
 
         if hashdict:
