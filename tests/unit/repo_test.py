@@ -224,7 +224,21 @@ class RepoTest(base.BaseTestCase):
                 test_date,
                 test_dt.strftime('%a, %d %b %Y %H:%M:%S %z'))
 
-        # assert release_content == False
+    def test_metadata_not_shared(self):
+        # Make sure defaults are not shared between objects
+        md1 = AptRepoMeta()
+        self.assertEquals(['amd64', 'i386'], md1.architectures)
+        self.assertEquals(dict(), md1.packages)
+
+        md1.packages.update(foo="foo.deb")
+        del md1.architectures[1]
+        self.assertEquals(['amd64'], md1.architectures)
+        self.assertEquals(dict(foo="foo.deb"), md1.packages)
+
+        md2 = AptRepoMeta()
+        self.assertEquals(['amd64', 'i386'], md2.architectures)
+        self.assertEquals(dict(), md2.packages)
+
     @base.mock.patch("debpkgr.aptrepo.debpkg.debfile")
     def test_AptRepo_create(self, _debfile):
         D = deb822.Deb822

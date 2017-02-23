@@ -26,6 +26,7 @@ pip install python-debian chardet
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import copy
 import inspect
 import logging
 import os
@@ -54,9 +55,10 @@ class BaseModel(object):
         slots = self.__class__._all_slots()
         for k in slots:
             if k in kwargs:
-                setattr(self, k, kwargs.get(k))
+                val = kwargs.get(k)
             else:
-                setattr(self, k, self._defaults.get(k))
+                val = copy.deepcopy(self._defaults.get(k))
+            setattr(self, k, val)
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
