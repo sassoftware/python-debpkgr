@@ -47,7 +47,6 @@ class BaseTestCase(unittest.TestCase):
 
         test_data = pkg_resources.resource_filename(
             __name__, 'test_data/')
-        print(test_data)
 
         shutil.copytree(test_data, self.current_repo_dir)
 

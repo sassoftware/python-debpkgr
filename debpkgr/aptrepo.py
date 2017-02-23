@@ -35,6 +35,7 @@ import time
 import gzip
 import bz2
 import tempfile
+import subprocess
 
 from debian import deb822
 
@@ -45,6 +46,49 @@ from .hasher import hash_file
 REPO_VERSION = '1.0'
 
 log = logging.getLogger(__name__)
+
+
+class SignerError(Exception):
+    pass
+
+
+class SignOptions(object):
+    """
+    An object to configure the gpg signer.
+
+    A cmd is expected to be passed into the object. That is the command to
+    execute in order to sign the release file.
+
+    The command should accept one argument, a release file.
+
+    This class' fields, prepended with GPG_ and upper-cased, will be
+    presented to the command as environment variables. The
+    command may determine which gpg key to use based on GPG_KEY_ID
+    or GPG_REPOSITORY_NAME
+    """
+
+    def __init__(self, cmd=None, repository_name=None, key_id=None):
+        if not cmd:
+            raise SignerError("Command not specified")
+        if not os.path.isfile(cmd):
+            raise SignerError(
+                "Command %s is not a file" % (cmd, ))
+        if not os.access(cmd, os.X_OK):
+            raise SignerError("Command %s is not executable" %
+                              (cmd, ))
+
+        self.cmd = cmd
+        self.repository_name = repository_name
+        self.key_id = key_id
+
+    def as_environment(self):
+        env_dict = dict()
+        for k, v in self.__dict__.items():
+            if k.startswith('_') or v is None:
+                continue
+            k = k.replace('-', '_').upper()
+            env_dict['GPG_%s' % k] = str(v)
+        return env_dict
 
 
 class BaseModel(object):
@@ -183,9 +227,15 @@ class AptRepoMeta(BaseModel):
 
 class AptRepo(object):
 
-    def __init__(self, path, name, **kwargs):
+    def __init__(self, path, name, gpg_sign_options=None, **kwargs):
         self.base_path = path
         self.repo_name = name
+        if gpg_sign_options is not None:
+            if not isinstance(gpg_sign_options, SignOptions):
+                raise ValueError(
+                    "gpg_sign_options: unexpected type %r" %
+                    (gpg_sign_options, ))
+        self.gpg_sign_options = gpg_sign_options
         metadata = dict(origin=name, label=name)
         for k, v in kwargs.items():
             if k in AptRepoMeta._all_slots() and v is not None:
@@ -313,7 +363,7 @@ class AptRepo(object):
         self.metadata.releases.setdefault(repo_release_file,
                                           repo_release_content)
 
-        # FIXME Sign the Release file
+        self.sign(repo_release_file)
 
     def create(self, files, with_symlinks=False):
         dirs = []
@@ -338,8 +388,20 @@ class AptRepo(object):
         self.index()
         return
 
-    def sign(self):
-        raise NotImplementedError
+    def sign(self, release_file):
+        if not self.gpg_sign_options:
+            return
+        self.gpg_sign_options.repository_name = self.repo_name
+        cmd = [self.gpg_sign_options.cmd, release_file]
+        stdout = tempfile.NamedTemporaryFile()
+        stderr = tempfile.NamedTemporaryFile()
+        pobj = subprocess.Popen(
+            cmd, env=self.gpg_sign_options.as_environment(),
+            stdout=stdout, stderr=stderr)
+        ret = pobj.wait()
+        if ret != 0:
+            raise SignerError("Return code: %d" % ret)
+        return stdout, stderr
 
     @classmethod
     def parse(cls, path):

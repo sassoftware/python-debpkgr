@@ -27,6 +27,7 @@ from io import BytesIO
 from six import PY3
 
 from debpkgr.aptrepo import AptRepoMeta, AptRepo, create_repo, deb822
+from debpkgr.aptrepo import SignOptions, SignerError
 from tests import base
 
 
@@ -312,3 +313,43 @@ class RepoTest(base.BaseTestCase):
         _create.assert_called_once_with(self.new_repo_dir, self.name,
                                         architectures=None, description=None)
         repo.create.assert_called_once_with(self.files, with_symlinks=False)
+
+    def test_apt_repo_bad_signing_options(self):
+        with self.assertRaises(ValueError) as ctx:
+            AptRepo(self.new_repo_dir, self.name,
+                    gpg_sign_options="really?")
+        self.assertTrue(
+            str(ctx.exception).startswith('gpg_sign_options: unexpected type'))
+
+
+class SignOptionsTest(base.BaseTestCase):
+    def test_bad_cmd(self):
+        with self.assertRaises(SignerError) as ctx:
+            SignOptions()
+        self.assertEquals(
+            "Command not specified",
+            str(ctx.exception))
+
+        with self.assertRaises(SignerError) as ctx:
+            SignOptions(cmd="/tmp")
+        self.assertEquals(
+            "Command /tmp is not a file",
+            str(ctx.exception))
+
+        cmd = self.mkfile("not-executable", contents="whatever")
+        with self.assertRaises(SignerError) as ctx:
+            SignOptions(cmd=cmd)
+        self.assertEquals(
+            "Command %s is not executable" % cmd,
+            str(ctx.exception))
+
+    def test_as_environment(self):
+        opts = dict(cmd="/bin/bash", repository_name="My repo")
+        obj = SignOptions(**opts)
+        # This is possible, whether a good idea or not.
+        obj.extra = "foo"
+        self.assertEquals(
+            dict(GPG_CMD=opts['cmd'],
+                 GPG_REPOSITORY_NAME=opts['repository_name'],
+                 GPG_EXTRA="foo"),
+            obj.as_environment())
