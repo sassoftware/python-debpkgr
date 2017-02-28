@@ -304,6 +304,48 @@ class RepoTest(base.BaseTestCase):
 
             self.assertEquals(exp_filenames, [x['Filename'] for x in pkgs])
 
+    @base.mock.patch("debpkgr.aptrepo.tempfile.NamedTemporaryFile")
+    @base.mock.patch("debpkgr.aptrepo.subprocess.Popen")
+    def test_AptRepo_sign(self, _Popen, _NamedTemporaryFile):
+        sign_cmd = self.mkfile("signme", contents="#!/bin/bash -e")
+        os.chmod(sign_cmd, 0o755)
+        so = SignOptions(cmd=sign_cmd)
+
+        _Popen.return_value.wait.return_value = 0
+        repo = AptRepo(self.new_repo_dir, self.name,
+                       gpg_sign_options=so)
+        repo.sign("MyRelease")
+
+        _Popen.assert_called_once_with(
+            [sign_cmd, "MyRelease"],
+            env=dict(
+                GPG_CMD=sign_cmd,
+                GPG_REPOSITORY_NAME=self.name,
+                GPG_DIST="stable",
+            ),
+            stdout=_NamedTemporaryFile.return_value,
+            stderr=_NamedTemporaryFile.return_value,
+        )
+
+    @base.mock.patch("debpkgr.aptrepo.tempfile.NamedTemporaryFile")
+    @base.mock.patch("debpkgr.aptrepo.subprocess.Popen")
+    def test_AptRepo_sign_error(self, _Popen, _NamedTemporaryFile):
+        sign_cmd = self.mkfile("signme", contents="#!/bin/bash -e")
+        os.chmod(sign_cmd, 0o755)
+        so = SignOptions(cmd=sign_cmd)
+
+        _Popen.return_value.wait.return_value = 2
+        repo = AptRepo(self.new_repo_dir, self.name,
+                       gpg_sign_options=so)
+        with self.assertRaises(SignerError) as ctx:
+            repo.sign("MyRelease")
+        self.assertEquals(
+            _NamedTemporaryFile.return_value,
+            ctx.exception.stdout)
+        self.assertEquals(
+            _NamedTemporaryFile.return_value,
+            ctx.exception.stderr)
+
     @base.mock.patch("debpkgr.aptrepo.AptRepo")
     @base.mock.patch("debpkgr.aptrepo.AptRepo.create")
     def test_repo_create(self, _AptRepo, _create):

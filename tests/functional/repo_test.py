@@ -147,3 +147,10 @@ gpg --homedir %s \\
         # Make sure the file was signed with the proper key
         firstline = open(stderr, "rb").readline().strip()
         assert firstline.endswith(self.gpg_key_id.encode('utf-8'))
+
+        # Check after the fact that gpg_sign_options was updated with a
+        # repository_name and dist
+        # We will rely on the functional test that the environment was
+        # properly set up
+        self.assertEquals('stable', gpg_sign_options.dist)
+        self.assertEquals(repo_name, gpg_sign_options.repository_name)

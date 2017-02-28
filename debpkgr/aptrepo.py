@@ -49,7 +49,10 @@ log = logging.getLogger(__name__)
 
 
 class SignerError(Exception):
-    pass
+    def __init__(self, *args, **kwargs):
+        self.stdout = kwargs.pop('stdout', None)
+        self.stderr = kwargs.pop('stderr', None)
+        super(SignerError, self).__init__(*args, **kwargs)
 
 
 class SignOptions(object):
@@ -80,6 +83,7 @@ class SignOptions(object):
         self.cmd = cmd
         self.repository_name = repository_name
         self.key_id = key_id
+        self.dist = None
 
     def as_environment(self):
         env_dict = dict()
@@ -392,6 +396,7 @@ class AptRepo(object):
         if not self.gpg_sign_options:
             return
         self.gpg_sign_options.repository_name = self.repo_name
+        self.gpg_sign_options.dist = self.metadata.codename
         cmd = [self.gpg_sign_options.cmd, release_file]
         stdout = tempfile.NamedTemporaryFile()
         stderr = tempfile.NamedTemporaryFile()
@@ -400,7 +405,8 @@ class AptRepo(object):
             stdout=stdout, stderr=stderr)
         ret = pobj.wait()
         if ret != 0:
-            raise SignerError("Return code: %d" % ret)
+            raise SignerError("Return code: %d" % ret,
+                              stdout=stdout, stderr=stderr)
         return stdout, stderr
 
     @classmethod
