@@ -26,7 +26,9 @@ from io import BytesIO
 
 from six import PY3
 
-from debpkgr.aptrepo import AptRepoMeta, AptRepo, create_repo, deb822
+from debpkgr.aptrepo import AptRepoMeta, AptRepo
+from debpkgr.aptrepo import create_repo, parse_repo
+from debian import deb822
 from debpkgr.aptrepo import SignOptions, SignerError
 from tests import base
 
@@ -66,7 +68,7 @@ class FixedOffset(tzinfo):
 class RepoTest(base.BaseTestCase):
 
     def setUp(self):
-        base.BaseTestCase.setUp(self)
+        super(RepoTest, self).setUp()
         self.name = 'unit_test_repo_foo'  # should match Origin and Label
         self.components = ['main', 'updates']
         self.arches = ['amd64', 'i386', 'aarch64']
@@ -356,6 +358,11 @@ class RepoTest(base.BaseTestCase):
                                         architectures=None, description=None)
         repo.create.assert_called_once_with(self.files, with_symlinks=False)
 
+    @base.mock.patch("debpkgr.aptrepo.AptRepo.parse")
+    def test_repo_parse(self, _parse):
+        parse_repo(self.new_repo_dir, codename='stable')
+        _parse.assert_called_once_with(self.new_repo_dir, codename='stable')
+
     def test_apt_repo_bad_signing_options(self):
         with self.assertRaises(ValueError) as ctx:
             AptRepo(self.new_repo_dir, self.name,
@@ -365,6 +372,7 @@ class RepoTest(base.BaseTestCase):
 
 
 class SignOptionsTest(base.BaseTestCase):
+
     def test_bad_cmd(self):
         with self.assertRaises(SignerError) as ctx:
             SignOptions()

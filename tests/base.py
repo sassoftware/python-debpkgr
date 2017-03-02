@@ -20,6 +20,7 @@ import shutil
 import pkg_resources
 import tempfile
 import unittest
+import pytest
 
 from six import text_type
 
@@ -28,7 +29,7 @@ from six import text_type
 try:
     import unittest2 as unittest
 except ImportError:
-    import unittest # noqa
+    import unittest  # noqa
 
 try:
     from unittest import mock  # noqa

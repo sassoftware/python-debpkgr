@@ -20,6 +20,7 @@ from .base import BaseTestCase
 
 
 class TestCase(BaseTestCase):
+
     def test_import(self):
         """Validate debpkgr is importable"""
         import debpkgr  # noqa

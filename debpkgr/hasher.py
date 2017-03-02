@@ -37,8 +37,8 @@ class Hasher(object):
 
     def reset(self):
         self.hashers = dict([(x, getattr(hashlib, x)())
-                            for x in self._available_algorithms()
-                            if x in self.algorithms])
+                             for x in self._available_algorithms()
+                             if x in self.algorithms])
         self._digests = None
 
     def update(self, data):

@@ -23,7 +23,7 @@ from __future__ import unicode_literals
 try:
     import unittest2 as unittest
 except ImportError:
-    import unittest # noqa
+    import unittest  # noqa
 
 try:
     from unittest import mock  # noqa
@@ -54,7 +54,7 @@ class MainTests(base.BaseTestCase):
     @mock.patch('debpkgr.main.deb_package')
     @mock.patch('debpkgr.debpkg')
     @mock.patch('sys.argv')
-    def test_deb_package(self, _deb_package, _debpkg,  _argv):
+    def test_deb_package(self, _deb_package, _debpkg, _argv):
         test_args = ["-p", "pool/main/foo_0.0.1-1_amd64.deb"]
         _argv.results = test_args
         _deb_package()

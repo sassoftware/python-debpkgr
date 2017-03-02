@@ -31,18 +31,48 @@ from tests import base
 
 class RepoTest(base.BaseTestCase):
 
+    def setUp(self):
+        super(RepoTest, self).setUp()
+        self.repo_name = u'test_repo_foo'  # should match Origin and Label
+        self.repo_arches = u'i386 amd64'
+        self.repo_description = u'Apt repository for Test Repo Foo'
+        self.repo_bindirs = [u'dists/stable/main/binary-amd64',
+                             u'dists/stable/main/binary-i386', ]
+
+        self.repo_pools = [u'pool/main']
+        self.repo_packages = {
+            u'pool/main/f/foo/foo_0.0.1-1_amd64.deb': {
+                'Package': u'foo',
+                'Version': u'0.0.1-1',
+                'Architecture': u'amd64',
+                'Maintainer': u'Brett Smith <bc.smith@sas.com>',
+                'Installed-Size': u'25',
+                'Multi-Arch': u'foreign',
+                'Homepage': u'https://github.com/xbcsmith/foo',
+                'Priority': u'extra',
+                'Section': u'database',
+                'Filename': u'pool/main/f/foo/foo_0.0.1-1_amd64.deb',
+                'Size': u'1464',
+                'SHA256': u'd80568c932f54997713bb7832c6da6aa04992919f3d0f'
+                            '47afb6ba600a7586780',
+                'SHA1': u'5e26ae3ebf9f7176bb7fd01c9e802ac8e223cdcc',
+                'MD5sum': u'5fc5c0cb24690e78d6c6a2e13753f1aa',
+                'Description': u'So this is the Foo of Brixton program\n '
+                'When they kick at your front door\n How you gonna come?\n '
+                'With your hands on your head\n Or on the trigger of your gun'
+            }
+        }
+
     def test_create_repo(self):
-        name = 'test_repo_foo'  # should match Origin and Label
-        arches = ['amd64', 'i386']
-        description = 'Apt repository for Test Repo Foo'
         files = []
         for root, _, fl in os.walk(self.pool_dir):
             for f in fl:
                 if f.endswith('.deb'):
                     files.append(os.path.join(root, f))
 
-        repo = create_repo(self.new_repo_dir, files, name=name,
-                           arches=arches, desc=description)
+        repo = create_repo(self.new_repo_dir, files, name=self.repo_name,
+                           arches=self.repo_arches.split(),
+                           desc=self.repo_description)
 
         repo_dir = os.path.join(self.new_repo_dir, repo.metadata.repodir)
         release_file = os.path.join(repo_dir, 'Release')
@@ -52,9 +82,11 @@ class RepoTest(base.BaseTestCase):
 
         release_822 = deb822.Release(release_data)
 
-        self.assertEquals(release_822.get('Origin'), name)
-        self.assertEquals(release_822.get('Label'), name)
-        self.assertEquals(release_822.get('Description'), description)
+        self.assertEquals(release_822.get('Origin'), self.repo_name)
+        self.assertEquals(release_822.get('Label'), self.repo_name)
+        self.assertEquals(
+            release_822.get('Description'),
+            self.repo_description)
 
         new_files = [os.path.basename(x)
                      for x in repo.metadata.archives.keys()]
@@ -62,18 +94,35 @@ class RepoTest(base.BaseTestCase):
 
         self.assertEquals(new_files, orig_files)
 
-        # assert release_data == False
-
-    def X_test_index_repo(self):
+    @base.pytest.mark.skip(reason="TODO")
+    def test_index_repo(self):
         repo = index_repo(self.new_repo_dir)
         print(repo.name)
 
-    def X_test_parse_repo(self):
-        repo = parse_repo(self.current_repo_dir)
-        print(repo.name)
+    def test_parse_repo(self):
+        repo = parse_repo(self.current_repo_dir, codename='stable')
+        self.assertEquals(repo.repo_name, 'test_repo_foo')
+        self.assertEquals(repo.metadata.architectures, self.repo_arches)
+        self.assertEquals(repo.metadata.label, self.repo_name)
+        self.assertEquals(repo.metadata.description, self.repo_description)
+        self.assertEquals(repo.metadata.packages, self.repo_packages)
+        self.assertEquals(
+            repo.metadata.releases['dists/stable/Release']['Description'],
+            self.repo_description)
+
+    # export REMOTE_TESTS=1 to activate
+    @base.pytest.mark.skipif(os.environ.get('REMOTE_TESTS', '0') == '0',
+                             reason='Remote Parse Test runs long')
+    def test_parse_remote_repo(self):
+        expected = u'Debian 3.1r8 Released 12th April 2008'
+        url = "http://archive.debian.org/debian"
+        repo = parse_repo(url, codename='sarge')
+        desc = repo.metadata.releases['dists/sarge/Release']['Description']
+        self.assertEquals(expected, desc)
 
 
 class SignedRepoTest(base.BaseTestCase):
+
     def setUp(self):
         super(SignedRepoTest, self).setUp()
         self.gpg_home = os.path.join(self.test_dir, "gpg-home")

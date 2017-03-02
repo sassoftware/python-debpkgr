@@ -19,8 +19,12 @@ import codecs
 import os
 import re
 import string
+from io import open
 
 from .compat import urlsplit
+from .compat import urlopen
+from .compat import HTTPError
+from .errors import FileNotFoundError
 
 ENV_NAME_RE = re.compile(r'_{2,}')
 utf8writer = codecs.getwriter('utf-8')
@@ -35,6 +39,31 @@ def local_path_from_url(url):
                 arr.append(s)
         return ''.join(arr)
     return None
+
+
+def is_remote(uri):
+    res = urlsplit(uri)
+    if not res.netloc:
+        return False
+    return True
+
+
+def opener(path):
+    fh = None
+    msg = 'Failed to open %s with %s %s'
+    if is_remote(path):
+        try:
+            fh = urlopen(path)
+        except HTTPError as e:
+            error = msg % (path, e.code, e.reason)
+            raise FileNotFoundError(error)
+    else:
+        try:
+            fh = open(normpath(path))
+        except IOError as e:
+            error = msg % (path, e.errno, e.strerror)
+            raise FileNotFoundError(error)
+    return fh
 
 
 def makedirs(dirName):

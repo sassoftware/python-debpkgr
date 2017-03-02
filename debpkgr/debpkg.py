@@ -80,18 +80,6 @@ class DebPkgFiles(UserList):
             return not self.__eq__(other)
         return not self == other
 
-# class DebPkgFiles(list):
-#
-#    def __new__(cls, data=[]):
-#        obj = super(DebPkgFiles, cls).__new__(cls, data)
-#        return obj
-#
-#    def __repr__(self):
-#        return 'DebPkgFiles(%s)' % sorted(list(self))
-#
-#    def __str__(self):
-#        return u"\n".join(sorted(list(self)))
-
 
 class DebPkgMD5sums(deb822.Deb822):
 

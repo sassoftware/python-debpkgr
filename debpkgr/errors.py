@@ -48,6 +48,11 @@ class KeyNotFoundError(DebPkgError):
     """The specified key was not found"""
 
 
+class FileNotFoundError(DebPkgError):
+
+    """The specified file was not found"""
+
+
 def debug_except_hook(type, value, tb):
     print("T-Rex Hates {0}".format(type.__name__))
     print(str(type))

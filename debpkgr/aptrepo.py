@@ -42,6 +42,8 @@ from debian import deb822
 from . import debpkg
 from . import utils
 from .hasher import hash_file
+from .hasher import hash_string
+from .errors import FileNotFoundError
 
 REPO_VERSION = '1.0'
 
@@ -49,6 +51,7 @@ log = logging.getLogger(__name__)
 
 
 class SignerError(Exception):
+
     def __init__(self, *args, **kwargs):
         self.stdout = kwargs.pop('stdout', None)
         self.stderr = kwargs.pop('stderr', None)
@@ -170,6 +173,23 @@ class AptRepoMeta(BaseModel):
 
     __slots__ = tuple(_defaults.keys())
 
+    _compression_types = ['gz', 'bz2', 'xz', 'lzma', 'lz']
+    _filenames = {'release': ['Release',
+                              'Release.gpg'],
+                  # Not supporting lzma or lz currently
+                  'packages': ['Packages',
+                               'Packages.gz',
+                               'Packages.bz2',
+                               'Packages.xz',
+                               'Packages.lzma',
+                               'Packages.lz'],
+                  'sources': ['Sources'],
+                  # Future use filenames see RepositoryFormat
+                  'contents': ['Contents-%(arch)s.gz'],
+                  'translation': ['Translation-%(lang)s.gz',
+                                  'Translation-%(lang)s.bz2'],
+                  }
+
     @property
     def repodir(self):
         return os.path.join('dists', self.codename)
@@ -252,6 +272,10 @@ class AptRepo(object):
     def _prefixes(self, paths):
         return [self._prefix(path) for path in paths]
 
+    @classmethod
+    def _opener(cls, path):
+        return utils.opener(path)
+
     def _find_package_files(self, path):
         """
         Find all the Package* files in repo and
@@ -261,7 +285,7 @@ class AptRepo(object):
         index = len(path.split(os.sep))
         for root, _, f in os.walk(path):
             for name in sorted(f):
-                if name.startswith('Package'):
+                if name in self.metadata._filenames['packages']:
                     full_path = os.path.join(root, name)
                     short_path = os.sep.join(full_path.split(os.sep)[index:])
                     algs = ["md5", "sha1", "sha256"]
@@ -410,12 +434,51 @@ class AptRepo(object):
         return stdout, stderr
 
     @classmethod
-    def parse(cls, path):
+    def parse(cls, path, codename=None):
         """
         Parse a repo from a path
         return AptRepo object
         """
-        pass
+        log.debug("Parsing %s" % path)
+        if not path.endswith('Release'):
+            if codename is not None and codename not in path:
+                path = os.path.join(path, 'dists', codename)
+        else:
+            path = os.path.dirname(path)
+        release_file = os.path.join(path, 'Release')
+        # TODO Verify signatures
+        # release_sig  = os.path.join(path, 'Release.gpg')
+        try:
+            release = deb822.Release(cls._opener(release_file))
+        except Exception:
+            log.error('Failed to open %s' % release_file)
+            raise FileNotFoundError
+        metadata = dict((k.lower(), v) for k, v in release.items())
+        name = release.get('label')
+        release_path = os.path.join('dists', release['codename'], 'Release')
+        metadata.update(dict(releases=dict([(release_path, release)])))
+        repourl = release_file[:-len('/' + release_path)]
+        package_filenames = copy.deepcopy(AptRepoMeta._filenames['packages'])
+        package_files = (x['name'] for x in release['MD5sum']
+                         if os.path.basename(x['name']) in package_filenames)
+        package_files = [os.path.join(path, x) for x in package_files]
+        # FIXME Currently first Package found wins
+        # TODO add preference for which type of compression we pick
+        packages = {}
+        downloaded = []
+        for pkgfile in package_files:
+            hashid = hash_string(os.path.dirname(pkgfile))['sha256']
+            if hashid not in downloaded:
+                try:
+                    pkg = deb822.Packages(cls._opener(pkgfile))
+                    if pkg.get('filename'):
+                        packages.setdefault(pkg.get('filename'), pkg)
+                        downloaded.append(hashid)
+                except Exception:
+                    log.error("Failed to open %s", pkgfile, exc_info=True)
+        metadata.update(dict(packages=packages))
+        filelist = [os.path.join(repourl, x) for x in packages.keys()]
+        return cls(filelist, name, **metadata)
 
 
 def create_repo(path, files, name=None,
@@ -431,12 +494,12 @@ def create_repo(path, files, name=None,
     return repo
 
 
-def index_repo(path):
-    repo = AptRepo.parse(path)
-    repo.index()
+def parse_repo(path, codename=None):
+    repo = AptRepo.parse(path, codename=codename)
     return repo
 
+# TODO
 
-def parse_repo(path):
-    repo = AptRepo.parse(path)
-    return repo
+
+def index_repo(path, codename=None):
+    raise NotImplementedError

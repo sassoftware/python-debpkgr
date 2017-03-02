@@ -181,6 +181,10 @@ def apt_indexer():
         default=False,
         help="Use symlinks instead of copying files")
 
+    parser.add_argument("--codename", dest="codename", action="store",
+                        default=None,
+                        help="Specify Codename for parsing repo")
+
     parser.add_argument(
         "-d", "--destination", dest="destination", action="store",
         default=None,
@@ -217,6 +221,7 @@ def apt_indexer():
     arches = args.arches
     description = args.desc
     symlinks = args.symlinks
+    codename = args.codename
     destination = args.destination
     if destination is None:
         destination = os.getcwd()
@@ -265,7 +270,7 @@ def apt_indexer():
     if ops['parse']:
         for path in files:
             if os.path.exists(path):
-                parse_repo(path)
+                parse_repo(path, codename=codename)
 
     if ops['index']:
         for path in files:
