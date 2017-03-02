@@ -1,8 +1,11 @@
 debpkgr
 =======
 
-Debian/Ubuntu utils including apt repo creation and .deb package info
+Pure Python implementation of Debian/Ubuntu packaging and repository utilities.
 
+The allows one to perform various Debian-specific operations on
+non-Debian systems, in the absence of typical system-provided
+utilities (e.g. apt).
 
 Example
 =======
@@ -39,59 +42,57 @@ Create Repo
              files.append(os.path.join(root, f))
 
  repo = create_repo(self.new_repo_dir, files, name=name,
-                           arches=arches, desc=description)
+                    arches=arches, desc=description)
 
+Signature Support
+-----------------
 
+It is possible to sign the repository metadata using a wrapper script /
+executable around GPG or another GPG-signing facility (like a [Hardware Security Module](https://en.wikipedia.org/wiki/Hardware_security_module).
 
+To do so, you will need to pass a `SignOptions` object to the lower-level
+`AptRepo` class as the `gpg_sign_options` argument:
 
-Reference
-==========
+.. code:: python
 
-Tag
-----
-Setup gpg keys
+    gpg_sign_options = SignOptions(cmd="/usr/local/bin/sign.sh",
+                                   key_id="45BA0816")
+    repo = AptRepo(repo_dir, repo_name,
+                   gpg_sign_options=gpg_sign_options)
 
-Tag and sign
+The supplied sign command has to be an executable.
 
-  ``git tag -sm 'v0.0.1' 0.0.1``
+It will be supplied the path to a `Release` file to be signed, and is
+expected to produce a file named `Release.gpg` in the same directory as the
+`Release` file.
 
-Push tags
+Additionally, the sign command will be passed the following environment
+variables:
 
-  ``git push -u origin master``
+* `GPG_CMD`
+* `GPG_KEY_ID` (if specified in the configuration file)
+* `GPG_REPOSITORY_NAME`
+* `GPG_DIST`
 
-building
---------
+The sign command may decide on a key ID to use, based on the repository name
+or the dist that is being signed.
 
-Configure pypi local
+A minimal sign command using GPG could be:
 
-::
+.. code:: shell
 
- cat > ~/.pypirc << EOF
- [distutils]
- index-servers =
-    pypi-local
- [pypi-local]
- repository: https://svcartifact.unx.sas.com/artifactory/api/pypi/pypi-local
- username: <username>
- password: <password>
+    #!/bin/bash -e
 
- EOF
+    KEYID=${GPG_KEY_ID:-45BA0816}
 
+    gpg --homedir /var/lib/debpkgr/gpg-home \
+        --detach-sign --default-key $KEYID \
+        --armor --output ${1}.gpg ${1}
 
-Build wheel
+You could import your password-less GPG keys like this:
 
-  ``pip install wheel``
+.. code:: shell
 
-  ``python setup.py sdist bdist_wheel upload -r pypi-local``
-
-
-Install
--------
-
-  ``pip install debpkgr -i https://svcartifact.unx.sas.com/artifactory/api/pypi/pypi/simple``
-
-
-:Authors:
-    Brett Smith
-
-:Version: 0.0.1
+    mkdir /var/lib/debpkgr/gpg-home
+    chmod 0700 /var/lib/debpkgr/gpg-home
+    gpg --homedir /var/lib/debpkgr/gpg-home --import <path-to-secret-keys>
