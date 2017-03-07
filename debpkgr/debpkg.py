@@ -30,6 +30,7 @@ from __future__ import unicode_literals
 
 import logging
 import sys
+import inspect
 
 log = logging.getLogger(__name__)
 
@@ -96,13 +97,68 @@ class DebPkgMD5sums(deb822.Deb822):
         return results
 
 
+class DebPkgRequires(object):
+
+    __slots__ = ('depends', 'pre_depends', 'recommends',
+                 'suggests', 'breaks', 'conflicts', 'provides', 'replaces',
+                 'enhances')
+
+    _defaults = dict((s, list()) for s in __slots__)
+
+    def __init__(self, **kwargs):
+        slots = self.__class__._all_slots()
+        for k in slots:
+            key = self._handle_key(k)
+            if key in kwargs:
+                val = self.parse(kwargs.get(key))
+            else:
+                val = self._defaults.get(k)
+            setattr(self, k, val)
+
+    def __repr__(self):
+        return 'DebPkgRequires(%s)' % self.relations
+
+    def _handle_key(self, k):
+        if '_' in k:
+            return '-'.join([x.capitalize() for x in k.split('_')])
+        return k.capitalize()
+
+    @classmethod
+    def _all_slots(cls):
+        slots = set()
+        for kls in inspect.getmro(cls):
+            slots.update(getattr(kls, '__slots__', []))
+        return slots
+
+    @property
+    def relations(self):
+        return dict((x, getattr(self, x)) for x in self._all_slots())
+
+    @staticmethod
+    def parse(raw):
+        return deb822.PkgRelation.parse_relations(raw)
+
+    def __str__(self):
+        s = ""
+        fmt = "%s : %s\n"
+        for k in self._all_slots():
+            key = self._handle_key(k)
+            dep = getattr(self, k)
+            if dep:
+                s += fmt % (key, deb822.PkgRelation.str(dep))
+        return s
+
+
 class DebPkg(object):
-    __slots__ = ("_c", "_h", "_md5")
+    """Represent an binary debian package"""
+
+    __slots__ = ("_c", "_h", "_md5", "_deps")
 
     def __init__(self, control, hashes, md5sums):
         if isinstance(control, dict):
             control = deb822.Deb822(control)
         self._c = control
+        self._deps = DebPkgRequires(**self._c)
         if isinstance(hashes, dict):
             hashes = deb822.Deb822(hashes)
         self._h = hashes
@@ -163,6 +219,14 @@ class DebPkg(object):
     @property
     def arch(self):
         return self._c['Architecture']
+
+    @property
+    def depends(self):
+        return self._deps.depends
+
+    @property
+    def dependencies(self):
+        return self._deps.relations
 
     @property
     def md5sum(self):

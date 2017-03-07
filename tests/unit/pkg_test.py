@@ -19,10 +19,12 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from collections import namedtuple
 from debian import deb822
 from debpkgr.debpkg import DebPkg
 from debpkgr.debpkg import DebPkgFiles
 from debpkgr.debpkg import DebPkgMD5sums
+from debpkgr.debpkg import DebPkgRequires
 from tests import base
 
 
@@ -118,6 +120,272 @@ class PkgTest(base.BaseTestCase):
         self.assertEquals(str(files), self.files_string)
         self.assertNotEquals(str(files), self.files_string_bad)
         # assert files == False
+
+    def test_pkg_requires(self):
+        TestData = namedtuple("TestData", "field data expected")
+
+        ArchRestriction = namedtuple('ArchRestriction',
+                                     ['enabled', 'arch'])
+        defaults = dict([('depends', []),
+                         ('pre_depends', []),
+                         ('recommends', []),
+                         ('suggests', []),
+                         ('breaks', []),
+                         ('conflicts', []),
+                         ('provides', []),
+                         ('replaces', []),
+                         ('enhances', [])])
+
+        empty = DebPkgRequires()
+        self.assertTrue(defaults, empty)
+
+        version_string = (u'foo (<<3.0-4), bar (<=1.5-0), baz (=1.2.0)'
+                          ', caz (>= 1.0-6), cuz (>>4.0.0-1)')
+        version_expect = [[{'arch': None,
+                            'archqual': None,
+                            'name': u'foo',
+                            'restrictions': None,
+                            'version': (u'<<', u'3.0-4')}],
+                          [{'arch': None,
+                            'archqual': None,
+                            'name': u'bar',
+                            'restrictions': None,
+                            'version': (u'<=', u'1.5-0')}],
+                          [{'arch': None,
+                            'archqual': None,
+                            'name': u'baz',
+                            'restrictions': None,
+                            'version': (u'=', u'1.2.0')}],
+                          [{'arch': None,
+                            'archqual': None,
+                            'name': u'caz',
+                            'restrictions': None,
+                            'version': (u'>=', u'1.0-6')}],
+                          [{'arch': None,
+                            'archqual': None,
+                            'name': u'cuz',
+                            'restrictions': None,
+                            'version': (u'>>', u'4.0.0-1')}]]
+
+        wildcard_string = u'foo [linux-any], bar [any-i386], baz [!linux-any]'
+        wildcard_expect = [[{'arch': [
+            ArchRestriction(
+                enabled=True,
+                arch=u'linux-any')],
+            'archqual': None,
+            'name': u'foo',
+            'restrictions': None,
+            'version': None}],
+            [{'arch': [
+                ArchRestriction(
+                    enabled=True,
+                    arch=u'any-i386')],
+              'archqual': None,
+              'name': u'bar',
+              'restrictions': None,
+              'version': None}],
+            [{'arch': [
+                ArchRestriction(
+                    enabled=False,
+                    arch=u'linux-any')],
+              'archqual': None,
+              'name': u'baz',
+              'restrictions': None,
+              'version': None}]]
+        arch_string = u'fuz [!amd64], caz [i386], cuz [amd64], daz [!i386]'
+        arch_expect = [[{'arch': [
+            ArchRestriction(
+                enabled=False,
+                arch=u'amd64')],
+            'archqual': None,
+            'name': u'fuz',
+            'restrictions': None,
+            'version': None}],
+            [{'arch': [
+                ArchRestriction(
+                    enabled=True,
+                    arch=u'i386')],
+                'archqual': None,
+                'name': u'caz',
+              'restrictions': None,
+              'version': None}],
+            [{'arch': [
+                ArchRestriction(
+                    enabled=True,
+                    arch=u'amd64')],
+                'archqual': None,
+                'name': u'cuz',
+              'restrictions': None,
+              'version': None}],
+            [{'arch': [
+                ArchRestriction(
+                    enabled=False,
+                    arch=u'i386')],
+                'archqual': None,
+                'name': u'daz',
+              'restrictions': None,
+              'version': None}]]
+        alternative_string = (u'baz2.7 | baz3.5, buz [i386] | fuz [amd64]'
+                              ', foo [linux-any] | fuz [linux-i386]')
+
+        alternative_expect = [[{'arch': None,
+                                'archqual': None,
+                                'name': u'baz2.7',
+                                'restrictions': None,
+                                'version': None},
+                               {'arch': None,
+                                'archqual': None,
+                                'name': u'baz3.5',
+                                'restrictions': None,
+                                'version': None}],
+                              [{'arch': [
+                                  ArchRestriction(
+                                      enabled=True,
+                                      arch=u'i386')],
+                                  'archqual': None,
+                                  'name': u'buz',
+                                'restrictions': None,
+                                'version': None},
+                               {'arch': [
+                                   ArchRestriction(
+                                       enabled=True,
+                                       arch=u'amd64')],
+                                  'archqual': None,
+                                  'name': u'fuz',
+                                  'restrictions': None,
+                                  'version': None}],
+                              [{'arch': [
+                                  ArchRestriction(
+                                      enabled=True,
+                                      arch=u'linux-any')],
+                                  'archqual': None,
+                                  'name': u'foo',
+                                  'restrictions': None,
+                                  'version': None},
+                               {'arch': [
+                                   ArchRestriction(
+                                       enabled=True,
+                                       arch=u'linux-i386')],
+                                  'archqual': None,
+                                  'name': u'fuz',
+                                  'restrictions': None,
+                                  'version': None}]]
+
+        tests = [TestData('Depends', version_string, version_expect),
+                 TestData('Breaks', wildcard_string, wildcard_expect),
+                 TestData('Conflicts', arch_string, arch_expect),
+                 TestData('Suggests', alternative_string, alternative_expect),
+                 ]
+
+        for td in tests:
+            control_data = self.control_data.copy()
+            control_data.update({td.field: td.data})
+            requires = DebPkgRequires(**control_data)
+            if td.field == 'Depends':
+                self.assertTrue(td.expected, requires.depends)
+            else:
+                self.assertTrue(td.expected, requires.relations[
+                                td.field.lower()])
+
+    def test_pkg_dependencies(self):
+        ArchRestriction = namedtuple('ArchRestriction',
+                                     ['enabled', 'arch'])
+        # TODO
+        # BuildRestriction = namedtuple('BuildRestriction',
+        #                              ['enabled', 'profile'])
+        control_data = self.control_data.copy()
+        control_data.update({'Breaks': u'broken (<=1.0-1) [i386]',
+                             'Conflicts': u'conflicting (=1.0-4)',
+                             'Pre-Depends': u'pre (>= 2.0-1)',
+                             'Depends': u'bar (>= 1.0-6), baz2.7 | baz3.5, '
+                             'buz [i386] | fuz [amd64], '
+                             'caz [i386], cuz [amd64], '
+                             'daz [!i386]',
+                             'Enhances': u'enhanceable [!i386]',
+                             })
+
+        dependencies = {u'breaks': [[{'arch':
+                                      [ArchRestriction(
+                                          enabled=True, arch=u'i386')],
+                                      'archqual': None,
+                                      'name': u'broken',
+                                      'restrictions': None,
+                                      'version': (u'<=', u'1.0-1')}]],
+                        u'conflicts': [[{'arch': None,
+                                         'archqual': None,
+                                         'name': u'conflicting',
+                                         'restrictions': None,
+                                         'version': (u'=', u'1.0-4')}]],
+                        u'depends': [[{'arch': None,
+                                       'archqual': None,
+                                       'name': u'bar',
+                                       'restrictions': None,
+                                       'version': (u'>=', u'1.0-6')}],
+                                     [{'arch': None,
+                                       'archqual': None,
+                                       'name': u'baz2.7',
+                                       'restrictions': None,
+                                       'version': None},
+                                      {'arch': None,
+                                         'archqual': None,
+                                         'name': u'baz3.5',
+                                         'restrictions': None,
+                                         'version': None}],
+                                     [{'arch':
+                                       [ArchRestriction(
+                                           enabled=True, arch=u'i386')],
+                                       'archqual': None,
+                                       'name': u'buz',
+                                       'restrictions': None,
+                                       'version': None},
+                                      {'arch':
+                                         [ArchRestriction(
+                                             enabled=True, arch=u'amd64')],
+                                       'archqual': None,
+                                       'name': u'fuz',
+                                       'restrictions': None,
+                                       'version': None}],
+                                     [{'arch':
+                                       [ArchRestriction(
+                                           enabled=True, arch=u'i386')],
+                                         'archqual': None,
+                                       'name': u'caz',
+                                       'restrictions': None,
+                                       'version': None}],
+                                     [{'arch':
+                                       [ArchRestriction(
+                                           enabled=True, arch=u'amd64')],
+                                         'archqual': None,
+                                       'name': u'cuz',
+                                       'restrictions': None,
+                                       'version': None}],
+                                     [{'arch':
+                                       [ArchRestriction(
+                                           enabled=False, arch=u'i386')],
+                                         'archqual': None,
+                                       'name': u'daz',
+                                       'restrictions': None,
+                                       'version': None}]],
+                        u'enhances': [[{'arch':
+                                        [ArchRestriction(
+                                            enabled=False, arch=u'i386')],
+                                        'archqual': None,
+                                        'name': u'enhanceable',
+                                        'restrictions': None,
+                                        'version': None}]],
+                        u'pre_depends': [[{'arch': None,
+                                           'archqual': None,
+                                           'name': u'pre',
+                                           'restrictions': None,
+                                           'version': (u'>=', u'2.0-1')}]],
+                        u'provides': [],
+                        u'recommends': [],
+                        u'replaces': [],
+                        u'suggests': []}
+
+        pkg = DebPkg(control_data, self.md5sum_data, self.hashes_data)
+        self.assertEquals(dependencies, pkg.dependencies)
+        self.assertEquals(dependencies['depends'], pkg.depends)
 
     @base.mock.patch("debpkgr.debpkg.debfile.DebFile")
     def test_pkg_from_file(self, _DebFile):
