@@ -22,10 +22,11 @@ import os
 import subprocess
 
 from debian import deb822
-from debpkgr.aptrepo import AptRepo, SignOptions
+from debpkgr.aptrepo import AptRepo
 from debpkgr.aptrepo import create_repo
 from debpkgr.aptrepo import parse_repo
 from debpkgr.aptrepo import index_repo
+from debpkgr.signer import SignOptions
 from tests import base
 
 

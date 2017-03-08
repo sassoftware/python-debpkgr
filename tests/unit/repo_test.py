@@ -29,7 +29,7 @@ from six import PY3
 from debpkgr.aptrepo import AptRepoMeta, AptRepo
 from debpkgr.aptrepo import create_repo, parse_repo
 from debian import deb822
-from debpkgr.aptrepo import SignOptions, SignerError
+from debpkgr.signer import SignOptions, SignerError
 from tests import base
 
 
@@ -307,7 +307,7 @@ class RepoTest(base.BaseTestCase):
             self.assertEquals(exp_filenames, [x['Filename'] for x in pkgs])
 
     @base.mock.patch("debpkgr.aptrepo.tempfile.NamedTemporaryFile")
-    @base.mock.patch("debpkgr.aptrepo.subprocess.Popen")
+    @base.mock.patch("debpkgr.signer.subprocess.Popen")
     def test_AptRepo_sign(self, _Popen, _NamedTemporaryFile):
         sign_cmd = self.mkfile("signme", contents="#!/bin/bash -e")
         os.chmod(sign_cmd, 0o755)
@@ -330,7 +330,7 @@ class RepoTest(base.BaseTestCase):
         )
 
     @base.mock.patch("debpkgr.aptrepo.tempfile.NamedTemporaryFile")
-    @base.mock.patch("debpkgr.aptrepo.subprocess.Popen")
+    @base.mock.patch("debpkgr.signer.subprocess.Popen")
     def test_AptRepo_sign_error(self, _Popen, _NamedTemporaryFile):
         sign_cmd = self.mkfile("signme", contents="#!/bin/bash -e")
         os.chmod(sign_cmd, 0o755)
@@ -369,37 +369,3 @@ class RepoTest(base.BaseTestCase):
                     gpg_sign_options="really?")
         self.assertTrue(
             str(ctx.exception).startswith('gpg_sign_options: unexpected type'))
-
-
-class SignOptionsTest(base.BaseTestCase):
-
-    def test_bad_cmd(self):
-        with self.assertRaises(SignerError) as ctx:
-            SignOptions()
-        self.assertEquals(
-            "Command not specified",
-            str(ctx.exception))
-
-        with self.assertRaises(SignerError) as ctx:
-            SignOptions(cmd="/tmp")
-        self.assertEquals(
-            "Command /tmp is not a file",
-            str(ctx.exception))
-
-        cmd = self.mkfile("not-executable", contents="whatever")
-        with self.assertRaises(SignerError) as ctx:
-            SignOptions(cmd=cmd)
-        self.assertEquals(
-            "Command %s is not executable" % cmd,
-            str(ctx.exception))
-
-    def test_as_environment(self):
-        opts = dict(cmd="/bin/bash", repository_name="My repo")
-        obj = SignOptions(**opts)
-        # This is possible, whether a good idea or not.
-        obj.extra = "foo"
-        self.assertEquals(
-            dict(GPG_CMD=opts['cmd'],
-                 GPG_REPOSITORY_NAME=opts['repository_name'],
-                 GPG_EXTRA="foo"),
-            obj.as_environment())
