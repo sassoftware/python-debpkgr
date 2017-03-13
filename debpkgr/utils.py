@@ -19,15 +19,18 @@ import codecs
 import os
 import re
 import string
-from io import open
+from collections import namedtuple
 
 from .compat import urlsplit
-from .compat import urlopen
+from .compat import urlretrieve
 from .compat import HTTPError
 from .errors import FileNotFoundError
 
 ENV_NAME_RE = re.compile(r'_{2,}')
 utf8writer = codecs.getwriter('utf-8')
+
+
+DownloadRequest = namedtuple("DownloadRequest", "url destination data")
 
 
 def local_path_from_url(url):
@@ -41,29 +44,39 @@ def local_path_from_url(url):
     return None
 
 
-def is_remote(uri):
+def _to_url(uri):
     res = urlsplit(uri)
     if not res.netloc:
-        return False
-    return True
+        return 'file://' + os.path.abspath(uri)
+    return res
 
 
-def opener(path):
+def opener(path, destination=None):
     fh = None
     msg = 'Failed to open %s with %s %s'
-    if is_remote(path):
-        try:
-            fh = urlopen(path)
-        except HTTPError as e:
-            error = msg % (path, e.code, e.reason)
-            raise FileNotFoundError(error)
-    else:
-        try:
-            fh = open(normpath(path))
-        except IOError as e:
-            error = msg % (path, e.errno, e.strerror)
-            raise FileNotFoundError(error)
+    url = _to_url(path)
+    try:
+        fh, _ = urlretrieve(url, filename=destination)
+    except HTTPError as e:
+        error = msg % (path, e.code, e.reason)
+        raise FileNotFoundError(error)
     return fh
+
+
+def download(requests):
+    """
+    Initiate multiple downloads.
+    requests is a list of DownloadRequest objects.
+    A DownloadRequest object contains:
+    * url: source URL
+    * destination: a destination file or file descriptor
+    * data: additional information passed back to the caller at the end of the
+    download.
+    """
+    for req in requests:
+        dest = req.destination
+        opener(req.url, dest)
+    return requests
 
 
 def makedirs(dirName):

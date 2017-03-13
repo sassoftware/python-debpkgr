@@ -205,6 +205,14 @@ class DebPkg(object):
         return self.nvra + '.deb'
 
     @property
+    def relative_path(self):
+        return self._c.get('Filename')
+
+    @relative_path.setter
+    def relative_path(self, value):
+        self._c['Filename'] = value
+
+    @property
     def name(self):
         return self._c['Package']
 
@@ -256,3 +264,6 @@ class DebPkg(object):
         hashes = cls.make_hashes(path)
         control.update(kwargs)
         return cls(control, hashes, md5sums)
+
+    def dump(self, path):
+        return self.package.dump(path)

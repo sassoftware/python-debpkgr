@@ -22,7 +22,7 @@ import os
 import subprocess
 
 from debian import deb822
-from debpkgr.aptrepo import AptRepo
+from debpkgr.aptrepo import AptRepo, AptRepoMeta
 from debpkgr.aptrepo import create_repo
 from debpkgr.aptrepo import parse_repo
 from debpkgr.aptrepo import index_repo
@@ -72,11 +72,11 @@ class RepoTest(base.BaseTestCase):
                     files.append(os.path.join(root, f))
 
         repo = create_repo(self.new_repo_dir, files, name=self.repo_name,
-                           arches=self.repo_arches.split(),
+                           arches=self.repo_arches,
+                           components=['main'],
                            desc=self.repo_description)
 
-        repo_dir = os.path.join(self.new_repo_dir, repo.metadata.repodir)
-        release_file = os.path.join(repo_dir, 'Release')
+        release_file = repo.metadata.release_path(repo.base_path)
 
         with open(release_file, 'r') as fh:
             release_data = fh.read()
@@ -89,27 +89,23 @@ class RepoTest(base.BaseTestCase):
             release_822.get('Description'),
             self.repo_description)
 
-        new_files = [os.path.basename(x)
-                     for x in repo.metadata.archives.keys()]
-        orig_files = [os.path.basename(x) for x in files]
-
-        self.assertEquals(new_files, orig_files)
-
     @base.pytest.mark.skip(reason="TODO")
     def test_index_repo(self):
         repo = index_repo(self.new_repo_dir)
         print(repo.name)
 
     def test_parse_repo(self):
-        repo = parse_repo(self.current_repo_dir, codename='stable')
-        self.assertEquals(repo.repo_name, 'test_repo_foo')
-        self.assertEquals(repo.metadata.architectures, self.repo_arches)
-        self.assertEquals(repo.metadata.label, self.repo_name)
-        self.assertEquals(repo.metadata.description, self.repo_description)
-        self.assertEquals(repo.metadata.packages, self.repo_packages)
+        repo = parse_repo(self.new_repo_dir,
+                          self.current_repo_dir, codename='stable')
+        self.assertEquals(repo.repo_name, 'stable')
+        self.assertEquals(repo.metadata.architectures, ['i386', 'amd64'])
+        self.assertEquals(repo.metadata.release['label'], self.repo_name)
+        self.assertEquals(repo.metadata.release['description'],
+                          self.repo_description)
+
         self.assertEquals(
-            repo.metadata.releases['dists/stable/Release']['Description'],
-            self.repo_description)
+            [self.repo_packages['pool/main/f/foo/foo_0.0.1-1_amd64.deb']],
+            repo.metadata.get_component_arch_binary('main', 'amd64').packages)
 
     # export REMOTE_TESTS=1 to activate
     @base.pytest.mark.skipif(os.environ.get('REMOTE_TESTS', '0') == '0',
@@ -117,8 +113,18 @@ class RepoTest(base.BaseTestCase):
     def test_parse_remote_repo(self):
         expected = u'Debian 3.1r8 Released 12th April 2008'
         url = "http://archive.debian.org/debian"
-        repo = parse_repo(url, codename='sarge')
-        desc = repo.metadata.releases['dists/sarge/Release']['Description']
+        repo = parse_repo(self.new_repo_dir, url, codename='sarge')
+        desc = repo.metadata.release['Description']
+        self.assertEquals(expected, desc)
+
+    # export REMOTE_TESTS=1 to activate
+    @base.pytest.mark.skipif(os.environ.get('REMOTE_TESTS', '0') == '0',
+                             reason='Remote Parse Test runs long')
+    def test_parse_release_remote_repo(self):
+        expected = u'Debian 3.1r8 Released 12th April 2008'
+        url = "http://archive.debian.org/debian"
+        repo = AptRepo.parse_release(self.new_repo_dir, url, codename='sarge')
+        desc = repo.metadata.release['Description']
         self.assertEquals(expected, desc)
 
 
@@ -183,10 +189,11 @@ gpg --homedir %s \\
                         architectures=['amd64'])
         gpg_sign_options = SignOptions(cmd=self.gpg_signer,
                                        key_id=self.gpg_key_id)
-        repo = AptRepo(self.new_repo_dir, repo_name,
-                       gpg_sign_options=gpg_sign_options, **defaults)
+        meta = AptRepoMeta(codename=repo_name, **defaults)
+        repo = AptRepo(self.new_repo_dir, meta,
+                       gpg_sign_options=gpg_sign_options)
         repo.create([x[1] for x in Files], with_symlinks=True)
-        relfile = os.path.join(self.new_repo_dir, 'dists', 'stable',
+        relfile = os.path.join(self.new_repo_dir, 'dists', repo_name,
                                'Release')
         self.assertTrue(os.path.exists(relfile))
         relfile_signed = relfile + '.gpg'
@@ -202,5 +209,4 @@ gpg --homedir %s \\
         # repository_name and dist
         # We will rely on the functional test that the environment was
         # properly set up
-        self.assertEquals('stable', gpg_sign_options.dist)
         self.assertEquals(repo_name, gpg_sign_options.repository_name)

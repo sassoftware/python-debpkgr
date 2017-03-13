@@ -25,7 +25,7 @@ from six.moves import configparser
 from six.moves.reprlib import Repr
 from six.moves.urllib.parse import parse_qs, urlsplit, urlunsplit
 from six.moves.urllib.parse import urlparse, urlencode
-from six.moves.urllib.request import urlopen
+from six.moves.urllib.request import urlopen, urlretrieve
 from six.moves.urllib.error import HTTPError
 
 try:
