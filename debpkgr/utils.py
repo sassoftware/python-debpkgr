@@ -48,7 +48,7 @@ def _to_url(uri):
     res = urlsplit(uri)
     if not res.netloc:
         return 'file://' + os.path.abspath(uri)
-    return res
+    return uri
 
 
 def opener(path, destination=None):

@@ -354,6 +354,14 @@ class RepoTest(base.BaseTestCase):
             _NamedTemporaryFile.return_value,
             ctx.exception.stderr)
 
+    def test_AptRepo_repo_name(self):
+        meta = AptRepoMeta(codename='aaa')
+        repo = AptRepo(self.new_repo_dir, metadata=meta)
+        self.assertEquals('aaa', repo.repo_name)
+
+        repo = AptRepo(self.new_repo_dir, metadata=meta, repo_name='bbb')
+        self.assertEquals('bbb', repo.repo_name)
+
     @base.mock.patch("debpkgr.aptrepo.AptRepoMeta")
     @base.mock.patch("debpkgr.aptrepo.AptRepo")
     def test_repo_create(self, _AptRepo, _AptRepoMeta):

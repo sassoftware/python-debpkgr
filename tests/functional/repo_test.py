@@ -25,7 +25,6 @@ from debian import deb822
 from debpkgr.aptrepo import AptRepo, AptRepoMeta
 from debpkgr.aptrepo import create_repo
 from debpkgr.aptrepo import parse_repo
-from debpkgr.aptrepo import index_repo
 from debpkgr.signer import SignOptions
 from tests import base
 
@@ -89,11 +88,6 @@ class RepoTest(base.BaseTestCase):
             release_822.get('Description'),
             self.repo_description)
 
-    @base.pytest.mark.skip(reason="TODO")
-    def test_index_repo(self):
-        repo = index_repo(self.new_repo_dir)
-        print(repo.name)
-
     def test_parse_repo(self):
         repo = parse_repo(self.new_repo_dir,
                           self.current_repo_dir, codename='stable')
@@ -103,9 +97,24 @@ class RepoTest(base.BaseTestCase):
         self.assertEquals(repo.metadata.release['description'],
                           self.repo_description)
 
+        comp_arch_bin = repo.metadata.get_component_arch_binary('main', 'amd64')
         self.assertEquals(
             [self.repo_packages['pool/main/f/foo/foo_0.0.1-1_amd64.deb']],
-            repo.metadata.get_component_arch_binary('main', 'amd64').packages)
+            list(comp_arch_bin.iter_packages()))
+        # Make sure we have a Packages file
+        pkgs_file = os.path.join(self.new_repo_dir, 'dists', 'stable', 'main',
+                                 'binary-amd64', 'Packages')
+        self.assertTrue(os.path.exists(pkgs_file))
+        stobj = os.stat(pkgs_file)
+        sz = stobj.st_size
+        inode = stobj.st_ino
+        # Make sure we removed the .gz we have created
+        self.assertFalse(os.path.exists(pkgs_file + '.gz'))
+        # Make sure we can correctly write packages back
+        comp_arch_bin.write_Packages(self.new_repo_dir)
+
+        self.assertEquals(sz - 1, os.stat(pkgs_file).st_size)
+        self.assertNotEquals(inode, os.stat(pkgs_file).st_ino)
 
     # export REMOTE_TESTS=1 to activate
     @base.pytest.mark.skipif(os.environ.get('REMOTE_TESTS', '0') == '0',

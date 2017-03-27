@@ -36,6 +36,7 @@ import tempfile
 
 from debian import deb822
 
+from . import compressr
 from . import debpkg
 from . import utils
 from . import signer
@@ -190,7 +191,7 @@ class AptRepoMeta(object):
     @classmethod
     def Write_Packages(cls, base_path, relative_path_fname, packages):
         """
-        packages: list of objects with a dump() method (debpkg.DebPkg or
+        packages: iterator of objects with a dump() method (debpkg.DebPkg or
         deb822.Packages)
         """
         short_names = [relative_path_fname,
@@ -202,6 +203,14 @@ class AptRepoMeta(object):
 
         pkg_plain, pkg_gz, pkg_bz2 = pkg_files
         try:
+            # This will make sure the iterator will continue to work if one
+            # exists, because it will point to a deleted file
+            try:
+                os.unlink(pkg_plain)
+            except OSError as e:
+                if e.errno != 2:
+                    raise
+            shutil.rmtree(pkg_plain, ignore_errors=True)
             with open(pkg_plain, 'wb') as pfh:
                 first = True
                 for pkg in packages:
@@ -235,9 +244,71 @@ class AptRepoMeta(object):
                 checksums.setdefault(outer_name, []).append(info)
         return short_names, checksums
 
+    def create_Packages_download_requests(self, base_path):
+        """
+        Iterate over the release file and create a list of download request
+        objects of type util.DownloadRequest
+        """
+        cmprsr = compressr.Opener()
+        assert self.upstream_url is not None
+        ca_to_flists = self.component_arch_binary_package_files_from_release()
+        dl_reqs = []
+        for (component, arch), flist in sorted(ca_to_flists.items()):
+            path_to_fobj = dict((x['name'], x) for x in flist)
+            preferred_filename = cmprsr.best_choice(path_to_fobj)[0]
+            fobj = path_to_fobj[preferred_filename]
+            caobj = self.get_component_arch_binary(component, arch)
+            dl_meta = dict(fobj, component=component, architecture=arch)
+            dest = os.path.join(base_path, caobj.relative_path('Packages'))
+            # Remove trailing Packages, replace with the actual file name from
+            # upstream
+            dest = os.path.join(os.path.dirname(dest),
+                                os.path.basename(preferred_filename))
+            utils.makedirs(os.path.dirname(dest))
+            dl_reqs.append(utils.DownloadRequest(
+                os.path.join(self.upstream_url, preferred_filename),
+                dest,
+                dl_meta))
+
+        return dl_reqs
+
+    def validate_component_arch_packages_downloads(self, dl_reqs):
+        """
+        Validate the specified download requests, and, if successful,
+        initialize the Packages object of the corresporning component_arch
+
+        dl_reqs is a list of utils.DownloadRequest objects
+        """
+        cmprsr = compressr.Opener()
+        # Validate downloads
+        for dl in dl_reqs:
+            algorithms = []
+            for alg_name, (key_name, _) in self._Hash_Algorithms.items():
+                if key_name in dl.data:
+                    algorithms.append(alg_name)
+                    break
+
+            digests = hash_file(dl.destination, algorithms)
+            if digests[alg_name] != dl.data[key_name]:
+                raise Exception("Checksum did not match")
+
+            component = dl.data['component']
+            arch = dl.data['architecture']
+            caobj = self.get_component_arch_binary(component, arch)
+            ext = os.path.splitext(dl.destination)[1].lstrip('.')
+            if ext in self._Compression_Types:
+                dest = dl.destination[:-len(ext) - 1]
+                shutil.copyfileobj(cmprsr.open(dl.destination, "rb"),
+                                   open(dest, "wb"))
+                os.unlink(dl.destination)
+            else:
+                dest = dl.destination
+            caobj.packages_file = open(dest, "rb")
+        return self
+
 
 class ComponentArchBinary(object):
-    __slots__ = ['release', 'packages', 'dist']
+    __slots__ = ['release', '_packages', '_packages_file', 'dist']
 
     def __init__(self, release=None, packages=None, meta=None, dist=None):
         if release is None:
@@ -247,9 +318,8 @@ class ComponentArchBinary(object):
         for k, v in meta.items():
             release.setdefault(k.capitalize(), v)
         self.release = release
-        if packages is None:
-            packages = []
-        self.packages = packages
+        self._packages = packages
+        self._packages_file = None
         self.dist = dist
 
     @property
@@ -260,15 +330,34 @@ class ComponentArchBinary(object):
     def architecture(self):
         return self.release['Architecture']
 
+    def add_package(self, pkg):
+        if self._packages is None:
+            self._packages = []
+            self._packages_file = None
+        self._packages.append(pkg)
+        return self
+
+    @property
+    def packages_file(self):
+        return self._packages_file
+
+    @packages_file.setter
+    def packages_file(self, value):
+        self._packages_file = value
+        self._packages_file.seek(0)
+
+    def iter_packages(self):
+        if self._packages is not None:
+            return iter(self._packages)
+        if self._packages_file is None:
+            return iter([])
+        self._packages_file.seek(0)
+        return deb822.Packages.iter_paragraphs(self._packages_file)
+
     def load_packages(self, base_path):
         pkgs_relative_path = self.relative_path('Packages')
-        return self._packages_from_file(
+        self._packages_file = open(
             os.path.join(base_path, pkgs_relative_path))
-
-    def _packages_from_file(self, fobj):
-        if not hasattr(fobj, 'read'):
-            fobj = open(fobj, "rb")
-        self.packages = list(deb822.Packages.iter_paragraphs(fobj))
 
     def relative_path(self, fname):
         return os.path.join(
@@ -293,13 +382,14 @@ class ComponentArchBinary(object):
     def write_Packages(self, base_path):
         pkgs_relative_path = self.relative_path('Packages')
         pkg_files, checksums = AptRepoMeta.Write_Packages(
-            base_path, pkgs_relative_path, self.packages)
+            base_path, pkgs_relative_path, self.iter_packages())
         return checksums
 
 
 class AptRepo(object):
 
-    def __init__(self, path, metadata=None, gpg_sign_options=None):
+    def __init__(self, path, metadata=None, gpg_sign_options=None,
+                 repo_name=None):
         self.base_path = path
         if gpg_sign_options is not None:
             if not isinstance(gpg_sign_options, signer.SignOptions):
@@ -310,9 +400,12 @@ class AptRepo(object):
         if metadata is None:
             metadata = AptRepoMeta()
         self.metadata = metadata
+        self._repo_name = repo_name
 
     @property
     def repo_name(self):
+        if self._repo_name is not None:
+            return self._repo_name
         return self.metadata.codename
 
     def _prefix(self, path):
@@ -322,107 +415,16 @@ class AptRepo(object):
         return [self._prefix(path) for path in paths]
 
     @classmethod
-    def make_download_request(cls, url, destination, data=None):
-        return utils.DownloadRequest(url, destination, data)
+    def make_download_request(cls, dl_request):
+        """
+        Convert a utils.DownloadRequest object into a download request object
+        recognized by the download method.
+        """
+        return dl_request
 
     @classmethod
     def download(cls, requests):
         return utils.download(requests)
-
-    def _find_package_files(self, path):
-        """
-        Find all the Package* files in repo and
-        and return a  hash dict
-        """
-        files = {}
-        index = len(path.split(os.sep))
-        for root, _, f in os.walk(path):
-            for name in sorted(f):
-                if name in self.metadata._filenames['packages']:
-                    full_path = os.path.join(root, name)
-                    short_path = os.sep.join(full_path.split(os.sep)[index:])
-                    algs = ["md5", "sha1", "sha256"]
-                    hashes = hash_file(os.path.abspath(full_path), algs=algs)
-                    size = str(os.stat(full_path).st_size)
-                    info = {
-                        "md5sum": [hashes["md5"], size, short_path],
-                        "sha1": [hashes["sha1"], size, short_path],
-                        "sha256": [hashes["sha256"], size, short_path],
-                    }
-                    files.setdefault(short_path, info)
-        self.metadata.packages = files
-        return files
-
-    def _find_archive_files(self, relpath):
-        path = self._prefix(relpath)
-        # Collect the lead (usually self.base_path)
-        lead = path[:-len(relpath)].rstrip(os.sep)
-        # Skip over trailing backslash
-        lead_len = len(lead) + 1
-        files = {}
-        for root, _, f in os.walk(path):
-            for name in sorted(f):
-                if name.endswith('.deb'):
-                    fp = os.path.join(root, name)
-                    Filename = fp[lead_len:]
-                    sz = str(os.stat(fp).st_size)
-                    pkg = debpkg.DebPkg.from_file(fp, Filename=Filename,
-                                                  Size=sz)
-                    self.metadata.archives.setdefault(fp, pkg)
-        return files
-
-    def _create_overrides(self):
-        overrides_file = tempfile.TemporaryFile(prefix="overrides")
-        overrides_content = ""
-        for name, pkg in self.archives.items():
-            overrides_content += "%s Priority extra\n" % pkg.name
-        overrides_file.write(overrides_content)
-        return overrides_file
-
-    def index(self):
-        log.debug("Indexing %s", self.metadata.codename)
-
-        for pool in self.metadata.pools:
-            file_list = self._find_archive_files(pool)
-            log.debug("Processing Archives:")
-            for f in file_list:
-                log.debug(f)
-
-        for path in self._prefixes(self.metadata.bindirs):
-            bindir = os.path.basename(path)
-            arch = bindir.partition('-')[-1]
-            component = path.split(os.sep)[-2]
-            log.debug("Processing {0} with arch {1}".format(bindir, arch))
-            packages_content = []
-            for name, pkg in sorted(self.metadata.archives.items()):
-                if pkg.arch == arch:
-                    packages_content.append(pkg.package)
-
-            self._write_packages_files(path, packages_content)
-
-            release_file = os.path.join(path, 'Release')
-            release_content = self.metadata.make_release(component, arch)
-
-            with open(release_file, 'w') as fhr:
-                fhr.write(str(release_content))
-
-            self.metadata.releases.setdefault(release_file, release_content)
-
-        # Make Main Release
-        self.metadata.packages = self._find_package_files(
-            self._prefix(self.metadata.repodir))
-        repo_release_file = self._prefix(os.path.join(self.metadata.repodir,
-                                                      'Release'))
-        repo_release_content = self.metadata.make_repo_release(
-            hashdict=self.metadata.packages.values())
-
-        with open(repo_release_file, 'w') as fhr:
-            fhr.write(str(repo_release_content))
-
-        self.metadata.releases.setdefault(repo_release_file,
-                                          repo_release_content)
-
-        self.sign(repo_release_file)
 
     def add_packages(self, filenames, component, architecture,
                      with_symlinks=False):
@@ -438,7 +440,7 @@ class AptRepo(object):
             dst_path = os.path.join(dst_dir, pkg.filename)
             pkg.relative_path = os.path.join(rel_path, pkg.filename)
             self._add_package(filename, dst_path, with_symlinks=with_symlinks)
-            component.packages.append(pkg)
+            component.add_package(pkg)
 
         return component
 
@@ -466,29 +468,6 @@ class AptRepo(object):
                               component=component, architecture=architecture)
         self.metadata.create(self.base_path)
         self.sign(self.metadata.release_path(self.base_path))
-        return
-
-        dirs = []
-        for d in self._prefixes(self.metadata.directories):
-            dirs.append(utils.makedirs(d))
-        if files:
-            for pool in self._prefixes(self.metadata.pools):
-                for f in files:
-                    dst = os.path.join(pool, os.path.basename(f))
-                    if with_symlinks:
-                        log.debug("Using symlinks")
-                        if os.path.exists(dst):
-                            if os.path.islink(dst):
-                                log.debug("Skipping link exists : %s" % dst)
-                            else:
-                                log.debug("Real file exists : %s" % dst)
-                            continue
-                        os.symlink(f, dst)
-                    else:
-                        log.debug("Copying file")
-                        shutil.copy(f, dst)
-        self.index()
-        return
 
     def sign(self, release_file):
         if not self.gpg_sign_options:
@@ -513,7 +492,8 @@ class AptRepo(object):
         # TODO Verify signatures
         # release_sig  = os.path.join(path, 'Release.gpg')
         dest = tempfile.NamedTemporaryFile(delete=False).name
-        req = cls.make_download_request(release_file, dest)
+        req = cls.make_download_request(
+            utils.DownloadRequest(release_file, dest, data=None))
         try:
             cls.download([req])
         except:
@@ -523,48 +503,12 @@ class AptRepo(object):
         return cls(base_path, meta)
 
     @classmethod
-    def parse_component_arch_binary_package_files(cls, meta):
-        path = meta.upstream_url
-        assert path is not None
-        ca_to_flists = meta.component_arch_binary_package_files_from_release()
-        dl_requests = []
-        for (component, arch), flist in ca_to_flists.items():
-            # XXX wire in compressr instead of grabbing the first
-            fobj = flist[0]
-            caobj = meta.get_component_arch_binary(component, arch)
-            fname = fobj['name']
-            dl_meta = dict(fobj, component=component, architecture=arch)
-            dl_requests.append(
-                cls.make_download_request(
-                    os.path.join(path, fname),
-                    tempfile.NamedTemporaryFile(
-                        delete=False,
-                        suffix='-' + os.path.basename(fname)).name,
-                    dl_meta))
-
-        cls.download(dl_requests)
-        # Validate downloads
-        for dl in dl_requests:
-            algorithms = []
-            for alg_name, (key_name, _) in meta._Hash_Algorithms.items():
-                if key_name in dl.data:
-                    algorithms.append(alg_name)
-                    break
-
-            digests = hash_file(dl.destination, algorithms)
-            if digests[alg_name] != dl.data[key_name]:
-                raise Exception("Checksum did not match")
-
-            component = dl.data['component']
-            arch = dl.data['architecture']
-            caobj = meta.get_component_arch_binary(component, arch)
-            caobj._packages_from_file(dl.destination)
-        return meta
-
-    @classmethod
     def parse(cls, base_path, path, codename=None):
         repoobj = cls.parse_release(base_path, path, codename=codename)
-        cls.parse_component_arch_binary_package_files(repoobj.metadata)
+        meta = repoobj.metadata
+        dl_reqs = meta.create_Packages_download_requests(base_path)
+        repoobj.download([cls.make_download_request(x) for x in dl_reqs])
+        meta.validate_component_arch_packages_downloads(dl_reqs)
         return repoobj
 
 
@@ -587,9 +531,3 @@ def create_repo(path, files, name=None, components=None,
 def parse_repo(base_path, path, codename=None):
     repo = AptRepo.parse(base_path, path, codename=codename)
     return repo
-
-# TODO
-
-
-def index_repo(path, codename=None):
-    raise NotImplementedError
