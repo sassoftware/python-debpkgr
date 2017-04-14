@@ -1,0 +1,38 @@
+%define pyname debpkgr
+
+Summary: Debian/Ubuntu .deb pkg utils
+Name: python-%{pyname}
+Version: @VERSION@
+Release: @RELEASE@
+Source0: %{pyname}-%{version}.tar.gz
+License: Apache 2.0
+Group: Development/Libraries
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
+Prefix: %{_prefix}
+BuildArch: noarch
+Vendor: Brett Smith <bc.smith@sas.com>
+Requires: python-debian python-six
+Url: https://github.com/sassoftware/python-debpkgr
+
+%description
+Pure Python implementation of Debian/Ubuntu packaging and repository utilities.
+
+The allows one to perform various Debian-specific operations on
+non-Debian systems, in the absence of typical system-provided
+utilities (e.g. apt).
+
+%prep
+%setup -n %{pyname}-%{version} -n %{pyname}-%{version}
+
+%build
+python setup.py build
+
+%install
+python setup.py install --single-version-externally-managed -O1 --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%files -f INSTALLED_FILES
+%defattr(-,root,root)
+%doc AUTHORS LICENSE ChangeLog README.rst TODO
