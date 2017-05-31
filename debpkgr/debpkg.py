@@ -352,7 +352,11 @@ class DebPkg(object):
         using keyword arguments.
         """
         debpkg = debfile.DebFile(filename=path)
-        md5sums = debpkg.md5sums(encoding='utf-8')
+        # existance of md5sums in control part is optional
+        try:
+            md5sums = debpkg.md5sums(encoding='utf-8')
+        except:
+            md5sums = None
         control = debpkg.control.debcontrol().copy()
         scripts = debpkg.control.scripts()
         hashes = cls.make_hashes(path)
