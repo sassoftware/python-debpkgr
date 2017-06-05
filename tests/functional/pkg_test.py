@@ -56,7 +56,7 @@ class PkgTest(base.BaseTestCase):
                       'sha256': u'd80568c932f54997713bb7832c6da6aa049929'
                               '19f3d0f47afb6ba600a7586780',
                       'name': u'foo',
-                      'nvra': u'foo_0.0.1-1_amd64',
+                      'nevra': u'foo_0.0.1-1_amd64',
                       }
 
         md5sums_data = {u'usr/share/doc/foo/changelog.Debian.gz':

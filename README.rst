@@ -20,7 +20,7 @@ Inspect Package
  pkg = DebPkg.from_file('/path/to/foo.deb')
 
  print(pkg.name)
- print(pkg.nvra)
+ print(pkg.nevra)
  print(pkg.md5sum)
  print(pkg.package)
 

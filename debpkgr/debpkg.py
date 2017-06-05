@@ -32,11 +32,15 @@ import logging
 import sys
 import inspect
 
+from functools import total_ordering
+
 log = logging.getLogger(__name__)
 
 try:
     from debian import debfile
     from debian import deb822
+    from debian.debian_support import Version
+    from debian.debian_support import version_compare
 except Exception:
     log.error(
         "[ERROR] Failed to import debian\n"
@@ -149,16 +153,53 @@ class DebPkgRequires(object):
         return s
 
 
+class DebPkgScripts(object):
+
+    __slots__ = ('preinst', 'postinst', 'prerm', 'postrm')
+
+    _defaults = dict((s, None) for s in __slots__)
+
+    def __init__(self, **kwargs):
+        for k in self._defaults.keys():
+            if k in kwargs:
+                val = kwargs.get(k)
+            else:
+                val = self._defaults.get(k)
+            setattr(self, k, val)
+
+    def __repr__(self):
+        return 'DebPkgScripts(%s)' % self
+
+    @property
+    def postinstall(self):
+        return self.postinst
+
+    @property
+    def postremove(self):
+        return self.postrm
+
+    @property
+    def preinstall(self):
+        return self.preinst
+
+    @property
+    def preremove(self):
+        return self.prerm
+
+
+@total_ordering
 class DebPkg(object):
-    """Represent an binary debian package"""
+    """Represent a binary debian package"""
 
-    __slots__ = ("_c", "_h", "_md5", "_deps")
+    __slots__ = ("_c", "_h", "_md5", "_deps", "_version", "_scripts")
 
-    def __init__(self, control, hashes, md5sums):
+    def __init__(self, control, hashes, md5sums, scripts={}):
         if isinstance(control, dict):
             control = deb822.Deb822(control)
         self._c = control
         self._deps = DebPkgRequires(**self._c)
+        self._version = Version(self._c.get('Version'))
+        self._scripts = DebPkgScripts(**scripts)
         if isinstance(hashes, dict):
             hashes = deb822.Deb822(hashes)
         self._h = hashes
@@ -168,10 +209,43 @@ class DebPkg(object):
             self._md5 = DebPkgMD5sums(md5sums)
 
     def __repr__(self):
-        return 'DebPkg(%s)' % self.nvra
+        return 'DebPkg(%s)' % self.nevra
 
     def __str__(self):
-        return self.nvra
+        return self.nevra
+
+    def __hash__(self):
+        return hash((self.name, self.version.full_version, self.arch))
+
+    def __eq__(self, other):
+        try:
+            return self.__cmp__(other) == 0
+        except (AttributeError, TypeError):
+            return NotImplemented
+
+    def __ne__(self, other):
+        try:
+            return not (self == other)
+        except (AttributeError, TypeError):
+            return NotImplemented
+
+    def __lt__(self, other):
+        try:
+            return self.__cmp__(other) < 0
+        except (AttributeError, TypeError):
+            return NotImplemented
+
+    def __cmp__(self, other):
+        if self is other:
+            return 0
+        if self.version == other.version:
+            if (self._c, self._h, self._md5) == (
+                    other._c, other._h, other._md5):
+                return 0
+            return -1
+        else:
+            return version_compare(
+                self.version.full_version, other.full_version)
 
     @property
     def package(self):
@@ -182,6 +256,10 @@ class DebPkg(object):
     @property
     def files(self):
         return DebPkgFiles([x for x in self._md5.keys()])
+
+    @property
+    def scripts(self):
+        return self._scripts
 
     @property
     def md5sums(self):
@@ -196,13 +274,8 @@ class DebPkg(object):
         return self._c
 
     @property
-    def nvra(self):
-        return '_'.join([self._c['Package'], self._c['Version'],
-                         self._c['Architecture']])
-
-    @property
     def filename(self):
-        return self.nvra + '.deb'
+        return self.nevra + '.deb'
 
     @property
     def relative_path(self):
@@ -217,16 +290,36 @@ class DebPkg(object):
         return self._c['Package']
 
     @property
-    def version(self):
-        return self._c['Version'].split('-')[0]
+    def epoch(self):
+        return self._version.epoch or '0'
 
     @property
-    def release(self):
-        return self._c['Version'].split('-')[-1] or None
+    def full_version(self):
+        return self._version.full_version
+
+    @property
+    def upstream_version(self):
+        return self._version.upstream_version
+
+    @property
+    def debian_version(self):
+        return self._version.debian_version
+
+    @property
+    def debian_revision(self):
+        return self._version.debian_revision
+
+    @property
+    def version(self):
+        return self._version
 
     @property
     def arch(self):
         return self._c['Architecture']
+
+    @property
+    def nevra(self):
+        return '_'.join([self.name, self._version.full_version, self.arch])
 
     @property
     def depends(self):
@@ -261,9 +354,10 @@ class DebPkg(object):
         debpkg = debfile.DebFile(filename=path)
         md5sums = debpkg.md5sums(encoding='utf-8')
         control = debpkg.control.debcontrol().copy()
+        scripts = debpkg.control.scripts()
         hashes = cls.make_hashes(path)
         control.update(kwargs)
-        return cls(control, hashes, md5sums)
+        return cls(control, hashes, md5sums, scripts=scripts)
 
     def dump(self, path):
         return self.package.dump(path)

@@ -82,7 +82,7 @@ class PkgTest(base.BaseTestCase):
                            'sha256': u'd80568c932f54997713bb7832c6da6aa049929'
                            '19f3d0f47afb6ba600a7586780',
                            'name': u'foo',
-                           'nvra': u'foo_0.0.1-1_amd64',
+                           'nevra': u'foo_0.0.1-1_amd64',
                            }
 
         self.package_data = self.control_data.copy()
@@ -386,6 +386,50 @@ class PkgTest(base.BaseTestCase):
         pkg = DebPkg(control_data, self.md5sum_data, self.hashes_data)
         self.assertEquals(dependencies, pkg.dependencies)
         self.assertEquals(dependencies['depends'], pkg.depends)
+
+    def test_pkg_versions(self):
+        expected = (
+            'bar_0.0.1-1_amd64',
+            'foo_0.0.1-1_amd64',
+            'bar_0.0.1-2_amd64',
+            'foo_0.0.1-2_amd64',
+            'bar_0.0.2-1_amd64',
+            'foo_0.0.2-1_amd64',
+            'bar_0.1.0-1_amd64',
+            'foo_0.1.0-1_amd64')
+        versions = ('0.0.1-1', '0.0.1-2', '0.0.2-1', '0.1.0-1')
+        foos = []
+        bars = []
+        for version in versions:
+            control_data = self.control_data.copy()
+            control_data.update(dict(Version=version))
+            foos.append(
+                DebPkg(control_data, self.md5sum_data, self.hashes_data))
+            control_data.update(dict(Package='bar'))
+            bars.append(
+                DebPkg(control_data, self.md5sum_data, self.hashes_data))
+        self.assertTrue(bars[2] == bars[2])
+        self.assertTrue(bars[2] >= bars[2])
+        self.assertTrue(bars[3] >= bars[2])
+        self.assertTrue(bars[2] <= bars[2])
+        self.assertTrue(bars[2] <= bars[3])
+        self.assertTrue(bars[1] != bars[2])
+        self.assertTrue(bars[0] <= bars[1])
+        self.assertTrue(bars[0] < bars[1])
+        self.assertFalse(bars[0] > bars[1])
+        self.assertFalse(bars[0] >= bars[1])
+        self.assertTrue(foos[0] < foos[1])
+        self.assertTrue(foos[0] < foos[-1])
+        self.assertFalse(foos[0] > foos[1])
+        self.assertFalse(foos[0] > foos[-1])
+        self.assertTrue(bars[0] < foos[0])
+        self.assertTrue(foos[0] != bars[0])
+        self.assertFalse(foos[0] == bars[0])
+        self.assertFalse(foos[0] == foos[1])
+        _all = sorted(foos + bars)
+        _all_versions = [x.nevra for x in _all]
+        for index in range(len(expected)):
+            self.assertEqual(expected[index], _all_versions[index])
 
     @base.mock.patch("debpkgr.debpkg.debfile.DebFile")
     def test_pkg_from_file(self, _DebFile):
