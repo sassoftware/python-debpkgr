@@ -406,3 +406,10 @@ class PkgTest(base.BaseTestCase):
         Filename = "pool/comp/a_1.deb"
         dp = DebPkg.from_file("/dev/null", Filename=Filename)
         self.assertEquals(Filename, dp._c['Filename'])
+
+    @base.mock.patch("debpkgr.debpkg.debfile.DebFile")
+    def test_pkg_from_file_without_md5sums(self, _DebFile):
+        _DebFile.return_value.md5sums.side_effect = Exception('No md5sums')
+        dp = DebPkg.from_file("/dev/null")
+        _DebFile.return_value.md5sums.assert_called_once()
+        self.assertEqual(dp.md5sums, DebPkgMD5sums())
