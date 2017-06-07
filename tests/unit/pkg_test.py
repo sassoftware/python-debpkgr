@@ -21,6 +21,7 @@ from __future__ import unicode_literals
 
 from collections import namedtuple
 from debian import deb822
+from debian import debfile
 from debpkgr.debpkg import DebPkg
 from debpkgr.debpkg import DebPkgFiles
 from debpkgr.debpkg import DebPkgMD5sums
@@ -408,8 +409,13 @@ class PkgTest(base.BaseTestCase):
         self.assertEquals(Filename, dp._c['Filename'])
 
     @base.mock.patch("debpkgr.debpkg.debfile.DebFile")
-    def test_pkg_from_file_without_md5sums(self, _DebFile):
-        _DebFile.return_value.md5sums.side_effect = Exception('No md5sums')
+    @base.mock.patch("debpkgr.debpkg.log.warn")
+    def test_pkg_from_file_without_md5sums(self, _log_warn, _DebFile):
+        meta = dict(package="a", version="1", architecture="amd64")
+        _DebFile.return_value.control.debcontrol.return_value = meta
+        args = "'md5sums' file not found, can't list MD5 sums"
+        _DebFile.return_value.md5sums.side_effect = debfile.DebError(args)
         dp = DebPkg.from_file("/dev/null")
-        _DebFile.return_value.md5sums.assert_called_once()
+        _DebFile.return_value.md5sums.assert_called_once_with(encoding='utf-8')
+        self.assertTrue(_log_warn.call_count == 1)
         self.assertEqual(dp.md5sums, DebPkgMD5sums())
