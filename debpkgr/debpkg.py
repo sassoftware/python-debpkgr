@@ -355,7 +355,8 @@ class DebPkg(object):
         # existance of md5sums in control part is optional
         try:
             md5sums = debpkg.md5sums(encoding='utf-8')
-        except:
+        except debfile.DebError as err:
+            log.warn('While processing %s: %s', path, err.args[0])
             md5sums = None
         control = debpkg.control.debcontrol().copy()
         scripts = debpkg.control.scripts()
