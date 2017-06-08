@@ -20,7 +20,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
-import time
+from time import gmtime as orig_gmtime
 from io import BytesIO
 
 from debpkgr.aptrepo import AptRepoMeta, AptRepo
@@ -220,10 +220,10 @@ class RepoTest(base.BaseTestCase):
 
     @base.mock.patch("debpkgr.aptrepo.time.gmtime")
     def test_set_date(self, _gmtime):
-        _gmtime.return_value = time.localtime(1234567890.123)
+        _gmtime.return_value = orig_gmtime(1234567890.123)
         repo_meta = AptRepoMeta(**self.defaults)
 
-        self.assertEquals("Fri, 13 Feb 2009 18:31:30 +0000",
+        self.assertEquals("Fri, 13 Feb 2009 23:31:30 +0000",
                           repo_meta.release['Date'])
 
     @base.mock.patch("debpkgr.aptrepo.debpkg.debfile")
