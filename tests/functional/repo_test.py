@@ -111,7 +111,8 @@ class RepoTest(base.BaseTestCase):
         # Make sure we removed the .gz we have created
         self.assertFalse(os.path.exists(pkgs_file + '.gz'))
         # Make sure we can correctly write packages back
-        comp_arch_bin.write_Packages(self.new_repo_dir)
+        comp_arch_bin.write_packages(self.new_repo_dir, repo.metadata.release_dir(
+            self.new_repo_dir))
 
         self.assertEquals(sz - 1, os.stat(pkgs_file).st_size)
         self.assertNotEquals(inode, os.stat(pkgs_file).st_ino)

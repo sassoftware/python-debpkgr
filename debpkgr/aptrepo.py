@@ -163,14 +163,18 @@ class AptRepoMeta(object):
         self._component_arch_binaries.append(obj)
         return obj
 
+    def release_dir(self, base_path):
+        return os.path.join(
+            base_path, 'dists', self.release['Codename'])
+
     def release_path(self, base_path):
         return os.path.join(
-            base_path, 'dists', self.release['Codename'], 'Release')
+            self.release_dir(base_path), 'Release')
 
     def create(self, base_path):
         all_checksums = dict()
         for obj in self.iter_component_arch_binaries():
-            checksums = obj.write_Packages(base_path)
+            checksums = obj.write_packages(base_path, self.release_dir(base_path))
             for k, vlist in checksums.items():
                 all_checksums.setdefault(k, []).extend(vlist)
         self.release.update(all_checksums)
@@ -189,7 +193,7 @@ class AptRepoMeta(object):
                             self.metadata.release['Codename'])
 
     @classmethod
-    def Write_Packages(cls, base_path, relative_path_fname, packages):
+    def WritePackages(cls, base_path, release_dir, relative_path_fname, packages):
         """
         packages: iterator of objects with a dump() method (debpkg.DebPkg or
         deb822.Packages)
@@ -198,7 +202,7 @@ class AptRepoMeta(object):
                        relative_path_fname + '.gz',
                        relative_path_fname + '.bz2',
                        ]
-        pkg_files = [os.path.join(base_path, x) for x in short_names]
+        pkg_files = [os.path.join(release_dir, x) for x in short_names]
         utils.makedirs(os.path.dirname(pkg_files[0]))
 
         pkg_plain, pkg_gz, pkg_bz2 = pkg_files
@@ -234,7 +238,7 @@ class AptRepoMeta(object):
         HA = cls._Hash_Algorithms
         checksums = dict()
         for relative_fname in short_names:
-            src = os.path.join(base_path, relative_fname)
+            src = os.path.join(release_dir, relative_fname)
             hashes = hash_file(src, algs=HA)
             size = str(os.stat(src).st_size)
             common = dict(name=relative_fname, size=size)
@@ -379,10 +383,11 @@ class ComponentArchBinary(object):
         utils.makedirs(os.path.dirname(path))
         self.release.dump(open(path, "wb"))
 
-    def write_Packages(self, base_path):
-        pkgs_relative_path = self.relative_path('Packages')
-        pkg_files, checksums = AptRepoMeta.Write_Packages(
-            base_path, pkgs_relative_path, self.iter_packages())
+    def write_packages(self, base_path, release_dir):
+        pkgs_relative_path = os.path.join(
+            self.component, 'binary-{}'.format(self.architecture), 'Packages')
+        pkg_files, checksums = AptRepoMeta.WritePackages(
+            base_path, release_dir, pkgs_relative_path, self.iter_packages())
         return checksums
 
 
