@@ -192,8 +192,8 @@ class RepoTest(base.BaseTestCase):
 
         # SHA1 only for main/i386
         sha1sums = [
-            dict(sha1="aaa", size="123", name="main/binary-i386/Pacakges.gz"),
-            dict(sha1="bbb", size="456", name="main/binary-i386/Pacakges"),
+            dict(sha1="aaa", size="123", name="main/binary-i386/Packages.gz"),
+            dict(sha1="bbb", size="456", name="main/binary-i386/Packages"),
         ]
         repo_meta.release.update(SHA1=sha1sums)
 

@@ -63,6 +63,13 @@ class RepoTest(base.BaseTestCase):
             }
         }
 
+        self.packagefile_paths = [u'main/binary-i386/Packages',
+                                  u'main/binary-i386/Packages.gz',
+                                  u'main/binary-i386/Packages.bz2',
+                                  u'main/binary-amd64/Packages',
+                                  u'main/binary-amd64/Packages.gz',
+                                  u'main/binary-amd64/Packages.bz2']
+
     def test_create_repo(self):
         files = []
         for root, _, fl in os.walk(self.pool_dir):
@@ -87,6 +94,13 @@ class RepoTest(base.BaseTestCase):
         self.assertEquals(
             release_822.get('Description'),
             self.repo_description)
+        # Test handling of Architectures
+        self.assertEquals(release_822.get('Architectures'), u'i386 amd64')
+        self.assertEquals(repo.metadata.architectures, ['i386', 'amd64'])
+        packagefile_paths_256 = [x['name'] for x in release_822['SHA256']]
+        packagefile_paths_1 = [x['name'] for x in release_822['SHA1']]
+        self.assertEquals(packagefile_paths_256, self.packagefile_paths)
+        self.assertEquals(packagefile_paths_1, self.packagefile_paths)
 
     def test_parse_repo(self):
         repo = parse_repo(self.new_repo_dir,
@@ -97,7 +111,8 @@ class RepoTest(base.BaseTestCase):
         self.assertEquals(repo.metadata.release['description'],
                           self.repo_description)
 
-        comp_arch_bin = repo.metadata.get_component_arch_binary('main', 'amd64')
+        comp_arch_bin = repo.metadata.get_component_arch_binary(
+            'main', 'amd64')
         self.assertEquals(
             [self.repo_packages['pool/main/f/foo/foo_0.0.1-1_amd64.deb']],
             list(comp_arch_bin.iter_packages()))

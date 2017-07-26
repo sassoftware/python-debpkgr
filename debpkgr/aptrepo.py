@@ -34,6 +34,7 @@ import gzip
 import bz2
 import tempfile
 
+from six import string_types
 from debian import deb822
 
 from . import compressr
@@ -174,7 +175,8 @@ class AptRepoMeta(object):
     def create(self, base_path):
         all_checksums = dict()
         for obj in self.iter_component_arch_binaries():
-            checksums = obj.write_packages(base_path, self.release_dir(base_path))
+            checksums = obj.write_packages(
+                base_path, self.release_dir(base_path))
             for k, vlist in checksums.items():
                 all_checksums.setdefault(k, []).extend(vlist)
         self.release.update(all_checksums)
@@ -193,7 +195,8 @@ class AptRepoMeta(object):
                             self.metadata.release['Codename'])
 
     @classmethod
-    def WritePackages(cls, base_path, release_dir, relative_path_fname, packages):
+    def WritePackages(cls, base_path, release_dir,
+                      relative_path_fname, packages):
         """
         packages: iterator of objects with a dump() method (debpkg.DebPkg or
         deb822.Packages)
@@ -520,10 +523,10 @@ class AptRepo(object):
 def create_repo(path, files, name=None, components=None,
                 arches=None, desc=None, with_symlinks=False):
     if arches is not None:
-        if isinstance(arches, str):
-            arches = [arches]
-        if isinstance(components, str):
-            components = [components]
+        if isinstance(arches, string_types):
+            arches = [x for x in arches.split() if x]
+        if isinstance(components, string_types):
+            components = [x for x in components.split() if x]
     meta = AptRepoMeta(codename=name,
                        components=components,
                        architectures=arches,
