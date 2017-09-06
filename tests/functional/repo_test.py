@@ -33,7 +33,9 @@ class RepoTest(base.BaseTestCase):
 
     def setUp(self):
         super(RepoTest, self).setUp()
-        self.repo_name = u'test_repo_foo'  # should match Origin and Label
+        self.repo_name = u'test_repo_foo'
+        self.repo_codename = u'stable'
+        self.repo_component = u'main'
         self.repo_arches = u'i386 amd64'
         self.repo_description = u'Apt repository for Test Repo Foo'
         self.repo_bindirs = [u'dists/stable/main/binary-amd64',
@@ -77,10 +79,12 @@ class RepoTest(base.BaseTestCase):
                 if f.endswith('.deb'):
                     files.append(os.path.join(root, f))
 
-        repo = create_repo(self.new_repo_dir, files, name=self.repo_name,
+        repo = create_repo(self.new_repo_dir, files,
+                           codename=self.repo_codename,
                            arches=self.repo_arches,
-                           components=['main'],
-                           desc=self.repo_description)
+                           components=[self.repo_component],
+                           desc=self.repo_description,
+                           origin=self.repo_name)
 
         release_file = repo.metadata.release_path(repo.base_path)
 
@@ -88,7 +92,6 @@ class RepoTest(base.BaseTestCase):
             release_data = fh.read()
 
         release_822 = deb822.Release(release_data)
-
         self.assertEquals(release_822.get('Origin'), self.repo_name)
         self.assertEquals(release_822.get('Label'), self.repo_name)
         self.assertEquals(
@@ -97,10 +100,65 @@ class RepoTest(base.BaseTestCase):
         # Test handling of Architectures
         self.assertEquals(release_822.get('Architectures'), u'i386 amd64')
         self.assertEquals(repo.metadata.architectures, ['i386', 'amd64'])
+        # Test package paths
         packagefile_paths_256 = [x['name'] for x in release_822['SHA256']]
         packagefile_paths_1 = [x['name'] for x in release_822['SHA1']]
         self.assertEquals(packagefile_paths_256, self.packagefile_paths)
         self.assertEquals(packagefile_paths_1, self.packagefile_paths)
+
+    def test_AptRepo_create(self):
+        test_dir = os.path.join(self.test_dir, self.repo_name, '_2001')
+
+        packagefile_paths = [u'main/binary-amd64/Packages',
+                             u'main/binary-amd64/Packages.gz',
+                             u'main/binary-amd64/Packages.bz2']
+        files = []
+        for root, _, fl in os.walk(self.pool_dir):
+            for f in fl:
+                if f.endswith('.deb'):
+                    files.append(os.path.join(root, f))
+        arch = 'amd64'
+        codename = 'stable'
+        component = 'main'
+        repometa = AptRepoMeta(
+            codename=codename,
+            components=[component],
+            architectures=[arch])
+
+        repo = AptRepo(test_dir,
+                       repo_name=self.repo_name,
+                       metadata=repometa,
+                       gpg_sign_options=None)
+
+        # Looking for bad behavior in defaults
+        repo.create(files,
+                    component=component,
+                    architecture=arch,
+                    with_symlinks=True)
+
+        release_file = repo.metadata.release_path(repo.base_path)
+
+        with open(release_file, 'r') as fh:
+            release_data = fh.read()
+
+        release_822 = deb822.Release(release_data)
+
+        # Test defaults for Origin, Label, Description
+        expected_default_origin = codename.capitalize()
+        self.assertEquals(release_822.get('Origin'), expected_default_origin)
+        self.assertEquals(release_822.get('Label'), expected_default_origin)
+        self.assertEquals(
+            release_822.get('Description'),
+            expected_default_origin)
+        # Test default for Suite
+        self.assertEquals(release_822.get('Suite'), codename)
+        # Test handling of Architectures
+        self.assertEquals(release_822.get('Architectures'), arch)
+        self.assertEquals(repo.metadata.architectures, [arch])
+        packagefile_paths_256 = [x['name'] for x in release_822['SHA256']]
+        packagefile_paths_1 = [x['name'] for x in release_822['SHA1']]
+        self.assertEquals(packagefile_paths_256, packagefile_paths)
+        self.assertEquals(packagefile_paths_1, packagefile_paths)
 
     def test_parse_repo(self):
         repo = parse_repo(self.new_repo_dir,

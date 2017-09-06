@@ -74,8 +74,9 @@ class AptRepoMeta(object):
         self.release.setdefault('Components', ' '.join(components))
         codename = self.release.setdefault('Codename', codename or 'foo')
         self.release.setdefault('Suite', codename)
-        self.release.setdefault('Description', description or codename)
-        origin = self.release.setdefault('Origin', origin or codename)
+        default = codename.capitalize()
+        self.release.setdefault('Description', description or default)
+        origin = self.release.setdefault('Origin', origin or default)
         self.release.setdefault('Label', label or origin)
         self.release.setdefault('Version', version or REPO_VERSION)
         self.set_date()
@@ -520,18 +521,21 @@ class AptRepo(object):
         return repoobj
 
 
-def create_repo(path, files, name=None, components=None,
-                arches=None, desc=None, with_symlinks=False):
+def create_repo(path, files, codename=None, components=None,
+                arches=None, desc=None, origin=None, label=None,
+                with_symlinks=False):
     if arches is not None:
         if isinstance(arches, string_types):
             arches = [x for x in arches.split() if x]
         if isinstance(components, string_types):
             components = [x for x in components.split() if x]
-    meta = AptRepoMeta(codename=name,
-                       components=components,
-                       architectures=arches,
-                       description=desc)
-    repo = AptRepo(path, meta)
+    metadata = AptRepoMeta(origin=origin,
+                           label=label,
+                           codename=codename,
+                           components=components,
+                           architectures=arches,
+                           description=desc)
+    repo = AptRepo(path, metadata=metadata)
     repo.create(files, with_symlinks=with_symlinks)
     return repo
 

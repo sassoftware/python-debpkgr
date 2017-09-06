@@ -365,16 +365,22 @@ class RepoTest(base.BaseTestCase):
     @base.mock.patch("debpkgr.aptrepo.AptRepoMeta")
     @base.mock.patch("debpkgr.aptrepo.AptRepo")
     def test_repo_create(self, _AptRepo, _AptRepoMeta):
-        repo = create_repo(self.new_repo_dir, self.files, name=self.name,
-                           arches=None, desc=None, with_symlinks=False)
+        archstr = ' '.join(self.arches)
+        origin = 'FooTest'
+        repo = create_repo(self.new_repo_dir, self.files, codename=self.name,
+                           arches=archstr, desc=None, origin=origin, with_symlinks=False)
         aptrepo = _AptRepo.return_value
         self.assertEquals(aptrepo, repo)
 
         _AptRepo.assert_called_once_with(self.new_repo_dir,
-                                         _AptRepoMeta.return_value)
-        _AptRepoMeta.asset_called_once_with(codename=self.name,
-                                            architectures=None,
-                                            description=None)
+                                         metadata=_AptRepoMeta.return_value)
+        _AptRepoMeta.asset_called_once_with(origin=origin,
+                                            label=origin,
+                                            codename=self.name,
+                                            components=self.components,
+                                            architectures=self.arches,
+                                            description=None
+                                            )
         aptrepo.create.assert_called_once_with(
             self.files, with_symlinks=False)
 
