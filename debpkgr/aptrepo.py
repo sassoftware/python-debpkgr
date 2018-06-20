@@ -33,6 +33,7 @@ import time
 import gzip
 import bz2
 import tempfile
+import re
 
 from six import string_types
 from debian import deb822
@@ -143,7 +144,7 @@ class AptRepoMeta(object):
                     comparch = (comp, arch)
                     if comparch in ret:
                         continue
-                    path = os.path.join(comp, 'binary-{}'.format(arch))
+                    path = os.path.join(re.sub(r'^.*/', '', comp), 'binary-{}'.format(arch))
                     if path not in comp_arch_bin_packages:
                         continue
                     ret[comparch] = comp_arch_bin_packages[path]

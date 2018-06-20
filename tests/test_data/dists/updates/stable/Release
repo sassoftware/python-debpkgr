@@ -1,0 +1,40 @@
+Origin: test_repo_foo
+Label: test_repo_foo
+Codename: stable
+Date: Fri, 13 Jan 2017 16:56:40 UTC
+Architectures: i386 amd64
+Components: updates/main
+Description: Apt repository for Test Repo Foo
+MD5Sum:
+ d41d8cd98f00b204e9800998ecf8427e 0 main/binary-i386/Packages
+ 7029066c27ac6f5ef18d660d5741979a 20 main/binary-i386/Packages.gz
+ c6f9059773738430fa6fdf267ff1efeb 124 main/binary-i386/Release
+ f5871894128564e585d41be05d9a462b 597 main/binary-amd64/Packages
+ 72169fd06c97e7c40b1476711d1d3411 436 main/binary-amd64/Packages.gz
+ 3e997d6885c722b1563f128fddb935ce 125 main/binary-amd64/Release
+ 27d58e50709d18eb98859c77cca82b90 65 main/Contents-i386
+ 1fd31403618fd8b765b0738230f5a085 36 main/Contents-i386.gz
+ 3dc0bd13e8d7d6a0b7c76b511329e090 214 main/Contents-amd64
+ 53d53b713a38c5c64b8155f1eb435a66 108 main/Contents-amd64.gz
+SHA1:
+ da39a3ee5e6b4b0d3255bfef95601890afd80709 0 main/binary-i386/Packages
+ 46c6643f07aa7f6bfe7118de926b86defc5087c4 20 main/binary-i386/Packages.gz
+ cf59c7fa4ca160c1aecf2da83b150bedf6179a14 124 main/binary-i386/Release
+ 6224f226738c3850fe39c85330cdd0b036714301 597 main/binary-amd64/Packages
+ 22c4f1cc53f4a6d0174fdadd244b607d9cfff4a7 436 main/binary-amd64/Packages.gz
+ 44a98221c9d710ba6a4f170d75b491a8e09cb1c2 125 main/binary-amd64/Release
+ fae4412e63f2f45c1e651dbd256890008330cf4b 65 main/Contents-i386
+ 971e263d7f444314afabcbf4a73376a4dba3b2e5 36 main/Contents-i386.gz
+ d47000df2380af9b7b308875340491da4cb50457 214 main/Contents-amd64
+ 80a1fc6a38e8f94c5cfdace9f1adcedaea44bfd6 108 main/Contents-amd64.gz
+SHA256:
+ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0 main/binary-i386/Packages
+ 59869db34853933b239f1e2219cf7d431da006aa919635478511fabbfc8849d2 20 main/binary-i386/Packages.gz
+ a2977c74c2c67a5542948a3bd59d8ee2b9f737291db3680f3061f2d7debf88f1 124 main/binary-i386/Release
+ 96601b9342a1210daab4754a7fc89d3a55ba906134e7fc91b047c72d1023a472 597 main/binary-amd64/Packages
+ f27e92b84fd9dcf82e610dedf3a63c343bd12c38094b50e6644ccadb86823ddd 436 main/binary-amd64/Packages.gz
+ a5f502aaf7b347e75e62342128ac40255a7c16eb8aeb7ed344856f2ffa7226b4 125 main/binary-amd64/Release
+ cf13e85fc3cdf7bc0182ba23034b735b2544edbc0074dcbe617974164ae3be9f 65 main/Contents-i386
+ 44818733e04c03289b19184fc4f4d7cd61e9496fd94bc254744cd5c7d10c2ab6 36 main/Contents-i386.gz
+ 8ce129f2f7d760540265eb6509501d1b4f0226bb649f12c7c879fa6539a7dd76 214 main/Contents-amd64
+ e7872db14db029c7746b08809db61a512ac0cd17a77c60d0452d62be2aca7cb8 108 main/Contents-amd64.gz
