@@ -210,6 +210,49 @@ class RepoTest(base.BaseTestCase):
         desc = repo.metadata.release['Description']
         self.assertEquals(expected, desc)
 
+    # export REMOTE_TESTS=1 to activate
+    @base.pytest.mark.skipif(os.environ.get('REMOTE_TESTS', '0') == '0',
+                             reason='Remote Parse Test runs long')
+    def test_parse_remote_updates_repo(self):
+        expected = u'Debian X Security Updates'
+        url = "http://security.debian.org/debian-security"
+        repo = parse_repo(self.new_repo_dir, url, codename='buster/updates')
+        desc = repo.metadata.release['Description']
+        self.assertEquals(expected, desc)
+
+    # export REMOTE_TESTS=1 to activate
+    @base.pytest.mark.skipif(os.environ.get('REMOTE_TESTS', '0') == '0',
+                             reason='Remote Parse Test runs long')
+    def test_parse_release_remote_updates_repo(self):
+        expected = u'Debian X Security Updates'
+        url = "http://security.debian.org/debian-security"
+        repo = AptRepo.parse_release(self.new_repo_dir, url, codename='buster/updates')
+        desc = repo.metadata.release['Description']
+        self.assertEquals(expected, desc)
+
+    def test_create_download_request_from_repo(self):
+        repo = AptRepoMeta(
+            release=open(os.path.join(self.current_repo_dir,
+                                      'dists',
+                                      'stable',
+                                      'Release'), "rb"),
+            upstream_url='file://%s' % self.current_repo_dir,
+            codename='stable')
+        self.assertNotEqual({}, repo.component_arch_binary_package_files_from_release())
+        self.assertNotEqual([], repo.create_Packages_download_requests("/tmp"))
+
+    def test_create_download_request_from_updates_repo(self):
+        repo = AptRepoMeta(
+            release=open(os.path.join(self.current_repo_dir,
+                                      'dists',
+                                      'updates',
+                                      'stable',
+                                      'Release'), "rb"),
+            upstream_url='file://%s' % self.current_repo_dir,
+            codename='updates/stable')
+        self.assertNotEqual({}, repo.component_arch_binary_package_files_from_release())
+        self.assertNotEqual([], repo.create_Packages_download_requests("/tmp"))
+
 
 class SignedRepoTest(base.BaseTestCase):
 

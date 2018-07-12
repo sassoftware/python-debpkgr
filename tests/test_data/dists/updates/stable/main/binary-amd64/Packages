@@ -1,0 +1,20 @@
+Package: foo
+Version: 0.0.1-1
+Architecture: amd64
+Maintainer: Brett Smith <bc.smith@sas.com>
+Installed-Size: 25
+Multi-Arch: foreign
+Homepage: https://github.com/xbcsmith/foo
+Priority: extra
+Section: database
+Filename: pool/main/f/foo/foo_0.0.1-1_amd64.deb
+Size: 1464
+SHA256: d80568c932f54997713bb7832c6da6aa04992919f3d0f47afb6ba600a7586780
+SHA1: 5e26ae3ebf9f7176bb7fd01c9e802ac8e223cdcc
+MD5sum: 5fc5c0cb24690e78d6c6a2e13753f1aa
+Description: So this is the Foo of Brixton program
+ When they kick at your front door
+ How you gonna come?
+ With your hands on your head
+ Or on the trigger of your gun
+
