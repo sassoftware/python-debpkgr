@@ -253,6 +253,22 @@ class RepoTest(base.BaseTestCase):
         self.assertNotEqual({}, repo.component_arch_binary_package_files_from_release())
         self.assertNotEqual([], repo.create_Packages_download_requests("/tmp"))
 
+    def test__create_Packages_download_requests__md5(self):
+        # PR #10: fix md5 in release-files
+        # Tests that, in the absence of SHA1 and SHA256, MD5 will be used
+        repo = AptRepoMeta(
+            release=open(os.path.join(self.current_repo_dir,
+                                      'dists',
+                                      'stable',
+                                      'Release'), "rb"),
+            upstream_url='file://%s' % self.current_repo_dir,
+            codename='stable')
+        del repo.release['SHA1']
+        del repo.release['SHA256']
+        self.assertEquals(
+            [('main', 'amd64'), ('main', 'i386')],
+            sorted(repo.component_arch_binary_package_files_from_release().keys()))
+
 
 class SignedRepoTest(base.BaseTestCase):
 

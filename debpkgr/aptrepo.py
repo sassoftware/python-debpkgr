@@ -130,7 +130,7 @@ class AptRepoMeta(object):
             meta=dict(component=component, architecture=architecture))
 
     def component_arch_binary_package_files_from_release(self):
-        digests = ['SHA256', 'SHA1', 'MD5']
+        digests = ['SHA256', 'SHA1', 'MD5Sum']
         ret = dict()
         for digest_name in digests:
             if digest_name not in self.release:
