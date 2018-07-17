@@ -17,7 +17,8 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from __future__ import unicode_literals
+# Don't use unicode_literals, it breaks test_dump_different_encodings because
+# python-debian expects py2 strings or py3 strings, not py2 unicode
 
 from collections import namedtuple
 from debian import deb822
@@ -64,10 +65,11 @@ class PkgTest(base.BaseTestCase):
 
         self.files_data = sorted([x for x in self.hashes_data.keys()])
 
-        self.md5sum_string = 'MD5sum 5fc5c0cb24690e78d6c6a2e13753f1aa\n'\
-                             'SHA1 5e26ae3ebf9f7176bb7fd01c9e802ac8e223cdcc\n'\
-                             'SHA256 d80568c932f54997713bb7832c6da6aa04992919'\
-                             'f3d0f47afb6ba600a7586780\n'
+        self.md5sum_string = '''\
+MD5sum: 5fc5c0cb24690e78d6c6a2e13753f1aa
+SHA1: 5e26ae3ebf9f7176bb7fd01c9e802ac8e223cdcc
+SHA256: d80568c932f54997713bb7832c6da6aa04992919f3d0f47afb6ba600a7586780
+'''
 
         self.files_string = 'usr/share/doc/foo/README.Debian\n'\
                             'usr/share/doc/foo/changelog.Debian.gz\n'\
@@ -109,8 +111,9 @@ class PkgTest(base.BaseTestCase):
         md5sums = DebPkgMD5sums(self.md5sum_data)
         for k, v in self.md5sum_data.items():
             self.assertEquals(md5sums[k], v)
-        self.assertEquals(str(md5sums), self.md5sum_string)
-        # assert md5sums == False
+        self.assertEquals(
+            sorted(str(md5sums).split('\n')),
+            sorted(self.md5sum_string.split('\n')))
 
     def test_pkg_files(self):
         files = DebPkgFiles(self.files_data)
@@ -463,3 +466,18 @@ class PkgTest(base.BaseTestCase):
         _DebFile.return_value.md5sums.assert_called_once_with(encoding='utf-8')
         self.assertTrue(_log_warn.call_count == 1)
         self.assertEqual(dp.md5sums, DebPkgMD5sums())
+
+    def test_dump_different_encodings(self):
+        """
+        Make sure we can dump in a different encoding that the original one
+        """
+        srcenc = 'iso-8859-1'
+        obj = DebPkgMD5sums({'\xed': 'i'}, encoding=srcenc)
+        self.assertEqual(
+            b'\xed: i\n'.decode(srcenc),
+            obj.dump(encoding='utf-8'))
+
+    def test_Deb822_str(self):
+        "Verify that __str__ returns a string, and not unicode in python2"
+        obj = ({'a': 'a'})
+        self.assertTrue(isinstance(obj.__str__(), str))

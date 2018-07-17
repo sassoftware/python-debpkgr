@@ -29,8 +29,10 @@ from __future__ import division
 from __future__ import unicode_literals
 
 import logging
+import six
 import sys
 import inspect
+from io import StringIO
 
 from functools import total_ordering
 
@@ -92,13 +94,70 @@ class DebPkgMD5sums(deb822.Deb822):
         return 'DebPkgMD5sums(%s)' % self
 
     def __str__(self):
-        results = u""
-        keys = sorted([x for x in self.keys()])
-        for k in keys:
-            results += u"{0} {1}\n".format(k, self.get(k))
-        # for k, v in self.items():
-        #    results += u"%s %s\n" % (k, v)
-        return results
+        encoding = DebPkg.ENCODINGS[0]
+        if six.PY3:
+            return self.dump(encoding=encoding)
+        return self.dump(encoding=encoding).encode(encoding)
+
+    # XXX FIXME: remove this function once https://salsa.debian.org/python-debian-team/python-debian/merge_requests/4 is merged
+    def dump(self, fd=None, encoding=None, text_mode=False):
+        """Dump the the contents in the original format
+
+        :param fd: file-like object to which the data should be written
+            (see notes below)
+        :param encoding: str, optional (Defaults to object default).
+            Encoding to use when writing out the data.
+        :param text_mode: bool, optional (Defaults to ``False``).
+            Encoding should be undertaken by this function rather than by the
+            caller.
+
+        If fd is None, returns a unicode object.  Otherwise, fd is assumed to
+        be a file-like object, and this method will write the data to it
+        instead of returning a unicode object.
+
+        If fd is not none and text_mode is False, the data will be encoded
+        to a byte string before writing to the file.  The encoding used is
+        chosen via the encoding parameter; None means to use the encoding the
+        object was initialized with (utf-8 by default).  This will raise
+        UnicodeEncodeError if the encoding can't support all the characters in
+        the Deb822Dict values.
+        """
+        # Ideally this would never try to encode (that should be up to the
+        # caller when opening the file), but we may still have users who rely
+        # on the binary mode encoding.  But...might it be better to break them
+        # than to introduce yet another parameter relating to encoding?
+
+        if fd is None:
+            fd = StringIO()
+            return_string = True
+        else:
+            return_string = False
+
+        if encoding is None:
+            # Use the encoding we've been using to decode strings with if none
+            # was explicitly specified
+            encoding = self.encoding
+
+        for key in self:
+            value = self.get_as_string(key)
+            keyenc = key
+            if isinstance(keyenc, six.binary_type):
+                # Convert the key into unicode
+                keyenc = key.decode(self.encoding)
+            if not value or value[0] == '\n':
+                # Avoid trailing whitespace after "Field:" if it's on its own
+                # line or the value is empty.  We don't have to worry about the
+                # case where value == '\n', since we ensure that is not the
+                # case in __setitem__.
+                entry = '%s:%s\n' % (keyenc, value)
+            else:
+                entry = '%s: %s\n' % (keyenc, value)
+            if not return_string and not text_mode:
+                fd.write(entry.encode(encoding))
+            else:
+                fd.write(entry)
+        if return_string:
+            return fd.getvalue()
 
 
 class DebPkgRequires(object):
@@ -192,6 +251,7 @@ class DebPkg(object):
     """Represent a binary debian package"""
 
     __slots__ = ("_c", "_h", "_md5", "_deps", "_version", "_scripts")
+    ENCODINGS = ["utf-8", "iso-8859-1"]
 
     def __init__(self, control, hashes, md5sums, scripts={}):
         if isinstance(control, dict):
@@ -352,17 +412,26 @@ class DebPkg(object):
         using keyword arguments.
         """
         debpkg = debfile.DebFile(filename=path)
-        # existance of md5sums in control part is optional
-        try:
-            md5sums = debpkg.md5sums(encoding='utf-8')
-        except debfile.DebError as err:
-            log.warn('While processing %s: %s', path, err.args[0])
-            md5sums = None
+        md5sums = cls.read_md5sums(debpkg, path)
         control = debpkg.control.debcontrol().copy()
         scripts = debpkg.control.scripts()
         hashes = cls.make_hashes(path)
         control.update(kwargs)
         return cls(control, hashes, md5sums, scripts=scripts)
+
+    @classmethod
+    def read_md5sums(cls, pkg, path):
+        for encoding in cls.ENCODINGS:
+            try:
+                return DebPkgMD5sums(pkg.md5sums(encoding=encoding),
+                                     encoding=encoding)
+            except UnicodeDecodeError:
+                continue
+            except debfile.DebError as err:
+                log.warn('While processing %s: %s', path, err.args[0])
+                return None
+        # Re-raise last exception if we ran out of encodings to try
+        raise
 
     def dump(self, path):
         return self.package.dump(path)
