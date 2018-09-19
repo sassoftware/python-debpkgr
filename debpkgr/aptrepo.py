@@ -268,10 +268,8 @@ class AptRepoMeta(object):
             fobj = path_to_fobj[preferred_filename]
             caobj = self.get_component_arch_binary(component, arch)
             dl_meta = dict(fobj, component=component, architecture=arch)
-            dest = os.path.join(base_path, caobj.relative_path('Packages'))
-            # Remove trailing Packages, replace with the actual file name from
-            # upstream
-            dest = os.path.join(os.path.dirname(dest),
+            dest = os.path.join(base_path,
+                                caobj.relative_path(''),
                                 os.path.basename(preferred_filename))
             utils.makedirs(os.path.dirname(dest))
             dl_reqs.append(utils.DownloadRequest(
