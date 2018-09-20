@@ -173,7 +173,7 @@ class AptRepoMeta(object):
                     comparch = (comp, arch)
                     if comparch in ret:
                         continue
-                    path = os.path.join(re.sub(r'^.*/', '', comp), 'binary-{}'.format(arch))
+                    path = os.path.join(os.path.basename(comp), 'binary-{}'.format(arch))
                     if path not in comp_arch_bin_packages:
                         continue
                     ret[comparch] = comp_arch_bin_packages[path]
@@ -185,7 +185,7 @@ class AptRepoMeta(object):
             meta.setdefault('label', self.release['Label'])
             meta.setdefault('description', self.release['Description'])
         obj = ComponentArchBinary(release=release, meta=meta,
-                                  dist=self.release['Codename'])
+                                  dist=self.distribution)
         if obj.component not in self.components:
             raise ValueError("Component %s not supported (expected: %s)" % (
                 obj.component, ', '.join(self.components)))
@@ -196,12 +196,10 @@ class AptRepoMeta(object):
         return obj
 
     def release_dir(self, base_path):
-        return os.path.join(
-            base_path, 'dists', self.release['Codename'])
+        return os.path.join(base_path, 'dists', self.distribution)
 
     def release_path(self, base_path):
-        return os.path.join(
-            self.release_dir(base_path), 'Release')
+        return os.path.join(self.release_dir(base_path), 'Release')
 
     def create(self, base_path):
         all_checksums = dict()
@@ -222,8 +220,7 @@ class AptRepoMeta(object):
         self.release.dump(open(path, "wb"))
 
     def dists_dir(self):
-        return os.path.join(self.base_path, 'dists',
-                            self.metadata.release['Codename'])
+        return os.path.join(self.base_path, 'dists', self.metadata.distribution)
 
     @classmethod
     def WritePackages(cls, base_path, release_dir,
@@ -397,8 +394,12 @@ class ComponentArchBinary(object):
 
     def relative_path(self, fname):
         return os.path.join(
-            'dists', self.dist, self.release['Component'],
-            'binary-{}'.format(self.release['Architecture']), fname)
+            'dists',
+            self.dist,
+            os.path.basename(self.component),
+            'binary-{}'.format(self.architecture),
+            fname,
+        )
 
     def release_path(self, base_path):
         return os.path.join(base_path, self.relative_path('Release'))
@@ -417,7 +418,7 @@ class ComponentArchBinary(object):
 
     def write_packages(self, base_path, release_dir):
         pkgs_relative_path = os.path.join(
-            self.component, 'binary-{}'.format(self.architecture), 'Packages')
+            os.path.basename(self.component), 'binary-{}'.format(self.architecture), 'Packages')
         pkg_files, checksums = AptRepoMeta.WritePackages(
             base_path, release_dir, pkgs_relative_path, self.iter_packages())
         return checksums
