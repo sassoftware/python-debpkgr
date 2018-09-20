@@ -102,14 +102,14 @@ class AptRepoMeta(object):
     def components(self):
         return self.release.get('Components', '').split()
 
+    @components.setter
+    def components(self, values):
+        assert isinstance(values, list)
+        self.release['Components'] = ' '.join(values)
+
     @property
     def codename(self):
         return self.release.get('Codename')
-
-    @components.setter
-    def _set_components(self, values):
-        assert isinstance(values, list)
-        self.release['Components'] = ' '.join(values)
 
     def init_component_arch_binaries(self):
         self._component_arch_binaries = []
