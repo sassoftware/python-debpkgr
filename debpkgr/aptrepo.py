@@ -36,6 +36,7 @@ import tempfile
 import re
 
 from six import string_types
+from six.moves.urllib import parse as urlparse
 from debian import deb822
 
 from . import compressr
@@ -50,7 +51,7 @@ log = logging.getLogger(__name__)
 
 
 class AptRepoMeta(object):
-    __slots__ = ['release', '_component_arch_binaries', 'upstream_url']
+    __slots__ = ['release', '_component_arch_binaries', 'upstream_url', 'distribution']
     """
     Object for storing Apt Repo MetaData
     """
@@ -60,8 +61,8 @@ class AptRepoMeta(object):
                             sha256=("sha256", "SHA256"))
 
     def __init__(self, release=None, origin=None, label=None, version=None,
-                 description=None, codename=None, components=None,
-                 architectures=None, upstream_url=None):
+                 description=None, codename=None, suite=None, components=None,
+                 architectures=None, upstream_url=None, distribution=None):
         if release is None:
             release = deb822.Release()
         else:
@@ -74,7 +75,7 @@ class AptRepoMeta(object):
         self.release.setdefault('Architectures', ' '.join(architectures))
         self.release.setdefault('Components', ' '.join(components))
         codename = self.release.setdefault('Codename', codename or 'foo')
-        self.release.setdefault('Suite', codename)
+        self.release.setdefault('Suite', suite or codename)
         default = codename.capitalize()
         self.release.setdefault('Description', description or default)
         origin = self.release.setdefault('Origin', origin or default)
@@ -83,6 +84,25 @@ class AptRepoMeta(object):
         self.set_date()
         self._component_arch_binaries = []
         self.upstream_url = upstream_url
+        # Set the distribution using the following order of precedence:
+        # user supplied parameter, extracted from the 'upstream_url',
+        # extracted from the Release file 'components' plus 'codename',
+        # or default back to 'codename' (old behaviour).
+        if distribution is None and upstream_url is not None:
+            url_path = urlparse.urlparse(upstream_url).path
+            distribution = re.sub(r'^.*/dists/', '', url_path).strip("/")
+        if not distribution and self.components:
+            extra_path = os.path.dirname(self.components[0])
+            distribution = os.path.join(self.codename, extra_path).strip("/")
+        if not distribution:
+            distribution = self.codename
+        # Build repository paths using 'codename' and not 'suite', paths
+        # involving the suite should normally be a symlink.
+        distribution_components = distribution.split("/")
+        if distribution_components[0] == self.suite:
+            distribution_components[0] = self.codename
+            distribution = '/'.join(distribution_components)
+        self.distribution = distribution
 
     def set_date(self):
         self.release.setdefault(
@@ -110,6 +130,15 @@ class AptRepoMeta(object):
     @property
     def codename(self):
         return self.release.get('Codename')
+
+    @property
+    def suite(self):
+        return self.release.get('Suite')
+
+    @suite.setter
+    def suite(self, value):
+        assert value is None or isinstance(value, str)
+        self.release['Suite'] = value or self.codename
 
     def init_component_arch_binaries(self):
         self._component_arch_binaries = []
@@ -520,7 +549,7 @@ class AptRepo(object):
         return repoobj
 
 
-def create_repo(path, files, codename=None, components=None,
+def create_repo(path, files, codename=None, suite=None, components=None,
                 arches=None, desc=None, origin=None, label=None,
                 with_symlinks=False):
     if arches is not None:
@@ -531,6 +560,7 @@ def create_repo(path, files, codename=None, components=None,
     metadata = AptRepoMeta(origin=origin,
                            label=label,
                            codename=codename,
+                           suite=suite,
                            components=components,
                            architectures=arches,
                            description=desc)

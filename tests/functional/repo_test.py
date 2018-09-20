@@ -35,6 +35,7 @@ class RepoTest(base.BaseTestCase):
         super(RepoTest, self).setUp()
         self.repo_name = u'test_repo_foo'
         self.repo_codename = u'stable'
+        self.repo_suite = u'suite'
         self.repo_component = u'main'
         self.repo_arches = u'i386 amd64'
         self.repo_description = u'Apt repository for Test Repo Foo'
@@ -81,6 +82,7 @@ class RepoTest(base.BaseTestCase):
 
         repo = create_repo(self.new_repo_dir, files,
                            codename=self.repo_codename,
+                           suite=self.repo_suite,
                            arches=self.repo_arches,
                            components=[self.repo_component],
                            desc=self.repo_description,
@@ -119,9 +121,11 @@ class RepoTest(base.BaseTestCase):
                     files.append(os.path.join(root, f))
         arch = 'amd64'
         codename = 'stable'
+        suite = 'suite'
         component = 'main'
         repometa = AptRepoMeta(
             codename=codename,
+            suite=suite,
             components=[component],
             architectures=[arch])
 
@@ -151,7 +155,7 @@ class RepoTest(base.BaseTestCase):
             release_822.get('Description'),
             expected_default_origin)
         # Test default for Suite
-        self.assertEqual(release_822.get('Suite'), codename)
+        self.assertEqual(release_822.get('Suite'), suite)
         # Test handling of Architectures
         self.assertEqual(release_822.get('Architectures'), arch)
         self.assertEqual(repo.metadata.architectures, [arch])
