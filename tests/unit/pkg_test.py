@@ -96,11 +96,11 @@ SHA256: d80568c932f54997713bb7832c6da6aa04992919f3d0f47afb6ba600a7586780
     def test_pkg(self):
         pkg = DebPkg(self.control_data, self.md5sum_data, self.hashes_data)
         for k, v in self.attrs_data.items():
-            self.assertEquals(getattr(pkg, k), v)
+            self.assertEqual(getattr(pkg, k), v)
         # Make sure the hashes are not part of the control file
         for k in pkg.hashes:
             self.assertFalse(k in pkg._c)
-        self.assertEquals(pkg.package, self.package_obj)
+        self.assertEqual(pkg.package, self.package_obj)
         # Make sure the hashes are still not part of the control file
         for k in pkg.hashes:
             self.assertFalse(k in pkg._c)
@@ -110,19 +110,19 @@ SHA256: d80568c932f54997713bb7832c6da6aa04992919f3d0f47afb6ba600a7586780
     def test_pkg_md5sums(self):
         md5sums = DebPkgMD5sums(self.md5sum_data)
         for k, v in self.md5sum_data.items():
-            self.assertEquals(md5sums[k], v)
-        self.assertEquals(
+            self.assertEqual(md5sums[k], v)
+        self.assertEqual(
             sorted(str(md5sums).split('\n')),
             sorted(self.md5sum_string.split('\n')))
 
     def test_pkg_files(self):
         files = DebPkgFiles(self.files_data)
-        self.assertEquals([x for x in files], self.files_data)
-        self.assertEquals(files, self.files_data)
-        self.assertNotEquals(files, self.attrs_data)
-        self.assertNotEquals(files, self.hashes_data)
-        self.assertEquals(str(files), self.files_string)
-        self.assertNotEquals(str(files), self.files_string_bad)
+        self.assertEqual([x for x in files], self.files_data)
+        self.assertEqual(files, self.files_data)
+        self.assertNotEqual(files, self.attrs_data)
+        self.assertNotEqual(files, self.hashes_data)
+        self.assertEqual(str(files), self.files_string)
+        self.assertNotEqual(str(files), self.files_string_bad)
         # assert files == False
 
     def test_pkg_requires(self):
@@ -388,8 +388,8 @@ SHA256: d80568c932f54997713bb7832c6da6aa04992919f3d0f47afb6ba600a7586780
                         u'suggests': []}
 
         pkg = DebPkg(control_data, self.md5sum_data, self.hashes_data)
-        self.assertEquals(dependencies, pkg.dependencies)
-        self.assertEquals(dependencies['depends'], pkg.depends)
+        self.assertEqual(dependencies, pkg.dependencies)
+        self.assertEqual(dependencies['depends'], pkg.depends)
 
     def test_pkg_versions(self):
         expected = (
@@ -446,14 +446,14 @@ SHA256: d80568c932f54997713bb7832c6da6aa04992919f3d0f47afb6ba600a7586780
                      (line.partition(': ') for line in lines))
         # Make sure the original dict is included
         for k, v in meta.items():
-            self.assertEquals(v, ldict[k])
+            self.assertEqual(v, ldict[k])
 
     @base.mock.patch("debpkgr.debpkg.debfile.DebFile")
     def test_pkg_from_file_with_Filename(self, _DebFile):
         _DebFile.return_value.control.debcontrol.return_value = {}
         Filename = "pool/comp/a_1.deb"
         dp = DebPkg.from_file("/dev/null", Filename=Filename)
-        self.assertEquals(Filename, dp._c['Filename'])
+        self.assertEqual(Filename, dp._c['Filename'])
 
     @base.mock.patch("debpkgr.debpkg.debfile.DebFile")
     @base.mock.patch("debpkgr.debpkg.log.warn")

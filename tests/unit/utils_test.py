@@ -55,7 +55,7 @@ class UtilsTests(base.BaseTestCase):
                               self.test_dir, "debian/control.tar.gz")),
                  ]
         for td in tests:
-            self.assertEquals(td.expected, utils.normpath(td.data))
+            self.assertEqual(td.expected, utils.normpath(td.data))
 
     def test_normalize_env_names(self):
         TestEnv = namedtuple("TestEnv", "data expected")
@@ -64,4 +64,4 @@ class UtilsTests(base.BaseTestCase):
                  TestEnv(u"Dave, give me a break",
                          u"DAVE_GIVE_ME_A_BREAK")]
         for td in tests:
-            self.assertEquals(td.expected, utils.normenvname(td.data))
+            self.assertEqual(td.expected, utils.normenvname(td.data))

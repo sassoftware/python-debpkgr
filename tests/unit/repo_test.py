@@ -149,13 +149,13 @@ class RepoTest(base.BaseTestCase):
         repo_meta = AptRepoMeta(**self.defaults)
         with self.assertRaises(ValueError) as ctx:
             repo_meta.get_component_arch_binary('BOGUS', 'amd64')
-        self.assertEquals(
+        self.assertEqual(
             "Component BOGUS not supported (expected: main, updates)",
             str(ctx.exception))
 
         with self.assertRaises(ValueError) as ctx:
             repo_meta.get_component_arch_binary('main', 'BOGUS')
-        self.assertEquals(
+        self.assertEqual(
             "Architecture BOGUS not defined (expected: amd64, i386, aarch64)",
             str(ctx.exception))
 
@@ -166,22 +166,22 @@ class RepoTest(base.BaseTestCase):
 
         release_path = os.path.join(self.test_dir, 'dists', 'stable',
                                     'Release')
-        self.assertEquals(release_path, repo_meta.release_path(self.test_dir))
+        self.assertEqual(release_path, repo_meta.release_path(self.test_dir))
         repo_meta.write_release(self.test_dir)
 
         expected = dict(self.repo_release_data, Date="ABCDE")
-        self.assertEquals(expected,
-                          deb822.Release(open(release_path, "rb").read()))
+        self.assertEqual(expected,
+                         deb822.Release(open(release_path, "rb").read()))
 
         comp_binary = repo_meta.get_component_arch_binary('main', 'amd64')
         release_path = os.path.join(self.test_dir, 'dists', 'stable',
                                     'main', 'binary-amd64', 'Release')
-        self.assertEquals(release_path,
-                          comp_binary.release_path(self.test_dir))
+        self.assertEqual(release_path,
+                         comp_binary.release_path(self.test_dir))
         comp_binary.write_release(self.test_dir)
         expected = self.release_data
-        self.assertEquals(expected,
-                          deb822.Release(open(release_path, "rb").read()))
+        self.assertEqual(expected,
+                         deb822.Release(open(release_path, "rb").read()))
 
     @base.mock.patch("debpkgr.aptrepo.time.strftime")
     def test_metadata_packages_from_release(self, _strftime):
@@ -204,27 +204,27 @@ class RepoTest(base.BaseTestCase):
             ('main', 'i386'): sha1sums,
         }
 
-        self.assertEquals(expected, ret)
+        self.assertEqual(expected, ret)
 
     def test_metadata_not_shared(self):
         # Make sure defaults are not shared between objects
         rel = deb822.Release(dict(Architectures="amd64 i386 aarch64"))
         md1 = AptRepoMeta(rel)
-        self.assertEquals(['amd64', 'i386', 'aarch64'], md1.architectures)
+        self.assertEqual(['amd64', 'i386', 'aarch64'], md1.architectures)
 
         md1.architectures = ['amd64']
-        self.assertEquals(['amd64'], md1.architectures)
+        self.assertEqual(['amd64'], md1.architectures)
 
         md2 = AptRepoMeta(rel)
-        self.assertEquals(['amd64', 'i386', 'aarch64'], md2.architectures)
+        self.assertEqual(['amd64', 'i386', 'aarch64'], md2.architectures)
 
     @base.mock.patch("debpkgr.aptrepo.time.gmtime")
     def test_set_date(self, _gmtime):
         _gmtime.return_value = orig_gmtime(1234567890.123)
         repo_meta = AptRepoMeta(**self.defaults)
 
-        self.assertEquals("Fri, 13 Feb 2009 23:31:30 +0000",
-                          repo_meta.release['Date'])
+        self.assertEqual("Fri, 13 Feb 2009 23:31:30 +0000",
+                         repo_meta.release['Date'])
 
     @base.mock.patch("debpkgr.aptrepo.debpkg.debfile")
     def test_AptRepo_create(self, _debfile):
@@ -267,7 +267,7 @@ class RepoTest(base.BaseTestCase):
         defaults['architectures'] = ['amd64', 'i386']
         meta = AptRepoMeta(**defaults)
         repo = AptRepo(self.new_repo_dir, meta)
-        self.assertEquals(defaults['codename'], repo.repo_name)
+        self.assertEqual(defaults['codename'], repo.repo_name)
 
         for arch, files in sorted(separated.items()):
             fpaths = [x[1] for x in files]
@@ -276,7 +276,7 @@ class RepoTest(base.BaseTestCase):
 
         repo.create(with_symlinks=with_symlinks)
 
-        self.assertEquals(
+        self.assertEqual(
             [base.mock.call(filename=x[1]) for x in src_files],
             _debfile.DebFile.call_args_list)
         pool_files = [os.path.join(self.new_repo_dir, "pool", "main",
@@ -284,11 +284,11 @@ class RepoTest(base.BaseTestCase):
                       for x in src_files]
         for src, dst in zip(src_files, pool_files):
             self.assertTrue(os.path.islink(dst))
-            self.assertEquals(src[1], os.readlink(dst))
+            self.assertEqual(src[1], os.readlink(dst))
         # Make sure Size and Filename are part of the debcontrol
         # The contents of the files are the filenames, so it is easy to check
         # the file size
-        self.assertEquals(
+        self.assertEqual(
             [(os.path.join("pool", "main", os.path.basename(x)),
               str(len(os.path.basename(x))))
              for x in sorted(y[1] for y in Files)],
@@ -301,7 +301,7 @@ class RepoTest(base.BaseTestCase):
 
         for exp, arch, idx in [(525, 'amd64', [0, 2]), (521, 'i386', [1, 3])]:
             path = os.path.join(dist_dir, 'binary-%s' % arch, 'Packages')
-            self.assertEquals(
+            self.assertEqual(
                 exp,
                 os.stat(path).st_size)
             pkgs = [x for x in D.iter_paragraphs(open(path, "rb"))]
@@ -310,7 +310,7 @@ class RepoTest(base.BaseTestCase):
                 os.path.join("pool", "main", os.path.basename(Files[i][1]))
                 for i in idx]
 
-            self.assertEquals(exp_filenames, [x['Filename'] for x in pkgs])
+            self.assertEqual(exp_filenames, [x['Filename'] for x in pkgs])
 
     @base.mock.patch("debpkgr.aptrepo.tempfile.NamedTemporaryFile")
     @base.mock.patch("debpkgr.signer.subprocess.Popen")
@@ -347,20 +347,20 @@ class RepoTest(base.BaseTestCase):
                        gpg_sign_options=so)
         with self.assertRaises(SignerError) as ctx:
             repo.sign("MyRelease")
-        self.assertEquals(
+        self.assertEqual(
             _NamedTemporaryFile.return_value,
             ctx.exception.stdout)
-        self.assertEquals(
+        self.assertEqual(
             _NamedTemporaryFile.return_value,
             ctx.exception.stderr)
 
     def test_AptRepo_repo_name(self):
         meta = AptRepoMeta(codename='aaa')
         repo = AptRepo(self.new_repo_dir, metadata=meta)
-        self.assertEquals('aaa', repo.repo_name)
+        self.assertEqual('aaa', repo.repo_name)
 
         repo = AptRepo(self.new_repo_dir, metadata=meta, repo_name='bbb')
-        self.assertEquals('bbb', repo.repo_name)
+        self.assertEqual('bbb', repo.repo_name)
 
     @base.mock.patch("debpkgr.aptrepo.AptRepoMeta")
     @base.mock.patch("debpkgr.aptrepo.AptRepo")
@@ -370,7 +370,7 @@ class RepoTest(base.BaseTestCase):
         repo = create_repo(self.new_repo_dir, self.files, codename=self.name,
                            arches=archstr, desc=None, origin=origin, with_symlinks=False)
         aptrepo = _AptRepo.return_value
-        self.assertEquals(aptrepo, repo)
+        self.assertEqual(aptrepo, repo)
 
         _AptRepo.assert_called_once_with(self.new_repo_dir,
                                          metadata=_AptRepoMeta.return_value)

@@ -62,7 +62,7 @@ class HasherTests(base.BaseTestCase):
         ]
         hf = hasher.HashFile(filename, algorithms=["md5", "sha1"])
         # Test digest_lines
-        self.assertEquals(exp_lines, hf.digest_lines)
+        self.assertEqual(exp_lines, hf.digest_lines)
 
         # Test write = we expect an empty line at the end, because of the
         # trailing newline
@@ -70,7 +70,7 @@ class HasherTests(base.BaseTestCase):
         digfile = filename + '.chksums'
         contents = open(digfile).read().split('\n')
 
-        self.assertEquals(exp_lines + [""], contents)
+        self.assertEqual(exp_lines + [""], contents)
 
     def test_debian_hash_from_file(self):
 
@@ -97,11 +97,11 @@ class HasherTests(base.BaseTestCase):
         # Make sure that we recalculate the digest after an update
         ho = hasher.Hasher(algorithms="md5")
         ho.update(b"a")
-        self.assertEquals(dict(md5="0cc175b9c0f1b6a831c399e269772661"),
-                          ho.digests)
+        self.assertEqual(dict(md5="0cc175b9c0f1b6a831c399e269772661"),
+                         ho.digests)
         ho.update(b"b")
-        self.assertEquals(dict(md5="187ef4436122d1cc2f40dc2b92f0eba0"),
-                          ho.digests)
+        self.assertEqual(dict(md5="187ef4436122d1cc2f40dc2b92f0eba0"),
+                         ho.digests)
 
     @base.mock.patch("debpkgr.hasher.hashlib")
     def test_hasher_algorithms_guaranteed(self, _hashlib):
@@ -109,4 +109,4 @@ class HasherTests(base.BaseTestCase):
         del _hashlib.algorithms_guaranteed
         _hashlib.algorithms = ["a", "b"]
         ho = hasher.Hasher(algorithms="md5")
-        self.assertEquals(["a", "b"], ho._available_algorithms())
+        self.assertEqual(["a", "b"], ho._available_algorithms())

@@ -80,10 +80,10 @@ class SignerTestSign(SignerBaseTest):
         signer = Signer(options=so)
         with self.assertRaises(SignerError) as ctx:
             signer.sign(filename)
-        self.assertEquals(
+        self.assertEqual(
             _NamedTemporaryFile.return_value,
             ctx.exception.stdout)
-        self.assertEquals(
+        self.assertEqual(
             _NamedTemporaryFile.return_value,
             ctx.exception.stderr)
 
@@ -103,8 +103,8 @@ class SignErrorTest(SignerBaseTest):
         with self.assertRaises(SignerError) as ctx:
             raise SignerError(msg, **err)
         self.assertTrue(msg in str(ctx.exception))
-        self.assertEquals(ctx.exception.stdout, err['stdout'])
-        self.assertEquals(ctx.exception.stderr, err['stderr'])
+        self.assertEqual(ctx.exception.stdout, err['stdout'])
+        self.assertEqual(ctx.exception.stderr, err['stderr'])
 
 
 class SignOptionsTest(SignerBaseTest):
@@ -118,20 +118,20 @@ class SignOptionsTest(SignerBaseTest):
     def test_bad_cmd(self):
         with self.assertRaises(SignerError) as ctx:
             SignOptions()
-        self.assertEquals(
+        self.assertEqual(
             "Command not specified",
             str(ctx.exception))
 
         with self.assertRaises(SignerError) as ctx:
             SignOptions(cmd="/tmp")
-        self.assertEquals(
+        self.assertEqual(
             "Command /tmp is not a file",
             str(ctx.exception))
 
         cmd = self.mkfile("not-executable", contents="whatever")
         with self.assertRaises(SignerError) as ctx:
             SignOptions(cmd=cmd)
-        self.assertEquals(
+        self.assertEqual(
             "Command %s is not executable" % cmd,
             str(ctx.exception))
 
@@ -140,7 +140,7 @@ class SignOptionsTest(SignerBaseTest):
         obj = SignOptions(**opts)
         # This is possible, whether a good idea or not.
         obj.extra = "foo"
-        self.assertEquals(
+        self.assertEqual(
             dict(GPG_CMD=opts['cmd'],
                  GPG_REPOSITORY_NAME=opts['repository_name'],
                  GPG_EXTRA="foo"),

@@ -92,19 +92,19 @@ class RepoTest(base.BaseTestCase):
             release_data = fh.read()
 
         release_822 = deb822.Release(release_data)
-        self.assertEquals(release_822.get('Origin'), self.repo_name)
-        self.assertEquals(release_822.get('Label'), self.repo_name)
-        self.assertEquals(
+        self.assertEqual(release_822.get('Origin'), self.repo_name)
+        self.assertEqual(release_822.get('Label'), self.repo_name)
+        self.assertEqual(
             release_822.get('Description'),
             self.repo_description)
         # Test handling of Architectures
-        self.assertEquals(release_822.get('Architectures'), u'i386 amd64')
-        self.assertEquals(repo.metadata.architectures, ['i386', 'amd64'])
+        self.assertEqual(release_822.get('Architectures'), u'i386 amd64')
+        self.assertEqual(repo.metadata.architectures, ['i386', 'amd64'])
         # Test package paths
         packagefile_paths_256 = [x['name'] for x in release_822['SHA256']]
         packagefile_paths_1 = [x['name'] for x in release_822['SHA1']]
-        self.assertEquals(packagefile_paths_256, self.packagefile_paths)
-        self.assertEquals(packagefile_paths_1, self.packagefile_paths)
+        self.assertEqual(packagefile_paths_256, self.packagefile_paths)
+        self.assertEqual(packagefile_paths_1, self.packagefile_paths)
 
     def test_AptRepo_create(self):
         test_dir = os.path.join(self.test_dir, self.repo_name, '_2001')
@@ -145,33 +145,33 @@ class RepoTest(base.BaseTestCase):
 
         # Test defaults for Origin, Label, Description
         expected_default_origin = codename.capitalize()
-        self.assertEquals(release_822.get('Origin'), expected_default_origin)
-        self.assertEquals(release_822.get('Label'), expected_default_origin)
-        self.assertEquals(
+        self.assertEqual(release_822.get('Origin'), expected_default_origin)
+        self.assertEqual(release_822.get('Label'), expected_default_origin)
+        self.assertEqual(
             release_822.get('Description'),
             expected_default_origin)
         # Test default for Suite
-        self.assertEquals(release_822.get('Suite'), codename)
+        self.assertEqual(release_822.get('Suite'), codename)
         # Test handling of Architectures
-        self.assertEquals(release_822.get('Architectures'), arch)
-        self.assertEquals(repo.metadata.architectures, [arch])
+        self.assertEqual(release_822.get('Architectures'), arch)
+        self.assertEqual(repo.metadata.architectures, [arch])
         packagefile_paths_256 = [x['name'] for x in release_822['SHA256']]
         packagefile_paths_1 = [x['name'] for x in release_822['SHA1']]
-        self.assertEquals(packagefile_paths_256, packagefile_paths)
-        self.assertEquals(packagefile_paths_1, packagefile_paths)
+        self.assertEqual(packagefile_paths_256, packagefile_paths)
+        self.assertEqual(packagefile_paths_1, packagefile_paths)
 
     def test_parse_repo(self):
         repo = parse_repo(self.new_repo_dir,
                           self.current_repo_dir, codename='stable')
-        self.assertEquals(repo.repo_name, 'stable')
-        self.assertEquals(repo.metadata.architectures, ['i386', 'amd64'])
-        self.assertEquals(repo.metadata.release['label'], self.repo_name)
-        self.assertEquals(repo.metadata.release['description'],
-                          self.repo_description)
+        self.assertEqual(repo.repo_name, 'stable')
+        self.assertEqual(repo.metadata.architectures, ['i386', 'amd64'])
+        self.assertEqual(repo.metadata.release['label'], self.repo_name)
+        self.assertEqual(repo.metadata.release['description'],
+                         self.repo_description)
 
         comp_arch_bin = repo.metadata.get_component_arch_binary(
             'main', 'amd64')
-        self.assertEquals(
+        self.assertEqual(
             [self.repo_packages['pool/main/f/foo/foo_0.0.1-1_amd64.deb']],
             list(comp_arch_bin.iter_packages()))
         # Make sure we have a Packages file
@@ -187,8 +187,8 @@ class RepoTest(base.BaseTestCase):
         comp_arch_bin.write_packages(self.new_repo_dir, repo.metadata.release_dir(
             self.new_repo_dir))
 
-        self.assertEquals(sz - 1, os.stat(pkgs_file).st_size)
-        self.assertNotEquals(inode, os.stat(pkgs_file).st_ino)
+        self.assertEqual(sz - 1, os.stat(pkgs_file).st_size)
+        self.assertNotEqual(inode, os.stat(pkgs_file).st_ino)
 
     # export REMOTE_TESTS=1 to activate
     @base.pytest.mark.skipif(os.environ.get('REMOTE_TESTS', '0') == '0',
@@ -198,7 +198,7 @@ class RepoTest(base.BaseTestCase):
         url = "http://archive.debian.org/debian"
         repo = parse_repo(self.new_repo_dir, url, codename='sarge')
         desc = repo.metadata.release['Description']
-        self.assertEquals(expected, desc)
+        self.assertEqual(expected, desc)
 
     # export REMOTE_TESTS=1 to activate
     @base.pytest.mark.skipif(os.environ.get('REMOTE_TESTS', '0') == '0',
@@ -208,7 +208,7 @@ class RepoTest(base.BaseTestCase):
         url = "http://archive.debian.org/debian"
         repo = AptRepo.parse_release(self.new_repo_dir, url, codename='sarge')
         desc = repo.metadata.release['Description']
-        self.assertEquals(expected, desc)
+        self.assertEqual(expected, desc)
 
     # export REMOTE_TESTS=1 to activate
     @base.pytest.mark.skipif(os.environ.get('REMOTE_TESTS', '0') == '0',
@@ -218,7 +218,7 @@ class RepoTest(base.BaseTestCase):
         url = "http://security.debian.org/debian-security"
         repo = parse_repo(self.new_repo_dir, url, codename='buster/updates')
         desc = repo.metadata.release['Description']
-        self.assertEquals(expected, desc)
+        self.assertEqual(expected, desc)
 
     # export REMOTE_TESTS=1 to activate
     @base.pytest.mark.skipif(os.environ.get('REMOTE_TESTS', '0') == '0',
@@ -228,7 +228,7 @@ class RepoTest(base.BaseTestCase):
         url = "http://security.debian.org/debian-security"
         repo = AptRepo.parse_release(self.new_repo_dir, url, codename='buster/updates')
         desc = repo.metadata.release['Description']
-        self.assertEquals(expected, desc)
+        self.assertEqual(expected, desc)
 
     def test_create_download_request_from_repo(self):
         repo = AptRepoMeta(
@@ -265,7 +265,7 @@ class RepoTest(base.BaseTestCase):
             codename='stable')
         del repo.release['SHA1']
         del repo.release['SHA256']
-        self.assertEquals(
+        self.assertEqual(
             [('main', 'amd64'), ('main', 'i386')],
             sorted(repo.component_arch_binary_package_files_from_release().keys()))
 
@@ -351,4 +351,4 @@ gpg --homedir %s \\
         # repository_name and dist
         # We will rely on the functional test that the environment was
         # properly set up
-        self.assertEquals(repo_name, gpg_sign_options.repository_name)
+        self.assertEqual(repo_name, gpg_sign_options.repository_name)

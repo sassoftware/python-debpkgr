@@ -88,13 +88,13 @@ class PkgTest(base.BaseTestCase):
         for name, pkg in packages.items():
             if name in package_attrs:
                 for attr in package_attrs[name]:
-                    self.assertEquals(package_attrs[name][attr],
-                                      getattr(pkg, attr))
+                    self.assertEqual(package_attrs[name][attr],
+                                     getattr(pkg, attr))
             if name in package_md5sums:
-                self.assertEquals(package_md5sums[name], pkg.md5sums)
+                self.assertEqual(package_md5sums[name], pkg.md5sums)
             if name in package_files:
-                self.assertEquals(sorted([x for x in package_files[name]]),
-                                  sorted([x for x in pkg.files]))
-                self.assertEquals(package_files[name], pkg.files)
+                self.assertEqual(sorted([x for x in package_files[name]]),
+                                 sorted([x for x in pkg.files]))
+                self.assertEqual(package_files[name], pkg.files)
             if name in package_data:
-                self.assertEquals(package_objects[name], pkg.package)
+                self.assertEqual(package_objects[name], pkg.package)

@@ -27,11 +27,11 @@ from tests import base
 class DecompressorTest(base.BaseTestCase):
     def test_preferences(self):
         dobj = compressr.Opener()
-        self.assertEquals(["xz", "bz2", "gz"], dobj.preferences)
+        self.assertEqual(["xz", "bz2", "gz"], dobj.preferences)
 
         prefs = ["bz2", "gz"]
         dobj = compressr.Opener(preferences=prefs)
-        self.assertEquals(prefs, dobj.preferences)
+        self.assertEqual(prefs, dobj.preferences)
 
     def test_rank(self):
         dobj = compressr.Opener()
@@ -42,7 +42,7 @@ class DecompressorTest(base.BaseTestCase):
                   "path1/Packages",
                   "path2/Packages"]
         ret = dobj.best_choice(fnames)
-        self.assertEquals(
+        self.assertEqual(
             ['path1/Packages.xz', 'path2/Packages', 'path3/Packages.bz2'],
             ret)
 
@@ -64,7 +64,7 @@ class DecompressorTest(base.BaseTestCase):
             fobj.close()
             fsize = os.stat(fname).st_size
             if fname == fname_uncompressed:
-                self.assertEquals(400, fsize)
+                self.assertEqual(400, fsize)
             else:
                 self.assertTrue(fsize < 400)
         for fname in file_names:
@@ -73,7 +73,7 @@ class DecompressorTest(base.BaseTestCase):
             else:
                 kwargs = {}
             fobj = dobj.open(fname, **kwargs)
-            self.assertEquals(b"Test" * 100, fobj.read())
+            self.assertEqual(b"Test" * 100, fobj.read())
 
     def test_open_no_extension(self):
         fname_uncompressed = "foo"
