@@ -506,7 +506,7 @@ class AptRepo(object):
             utils.DownloadRequest(release_file, dest, data=None))
         try:
             cls.download([req])
-        except:
+        except:  # noqa: E722
             log.error('Failed to open %s', release_file, exc_info=True)
             raise
         meta = AptRepoMeta(release=open(dest, "rb"), upstream_url=path)

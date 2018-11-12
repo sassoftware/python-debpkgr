@@ -99,7 +99,7 @@ class DebPkgMD5sums(deb822.Deb822):
             return self.dump(encoding=encoding)
         return self.dump(encoding=encoding).encode(encoding)
 
-    # XXX FIXME: remove this function once https://salsa.debian.org/python-debian-team/python-debian/merge_requests/4 is merged
+    # XXX FIXME: remove this function once https://salsa.debian.org/python-debian-team/python-debian/merge_requests/4 is merged  # noqa: E501
     def dump(self, fd=None, encoding=None, text_mode=False):
         """Dump the the contents in the original format
 
