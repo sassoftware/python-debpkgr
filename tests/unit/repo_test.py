@@ -41,23 +41,23 @@ class RepoTest(base.BaseTestCase):
     def setUp(self):
         super(RepoTest, self).setUp()
         self.name = 'unit_test_repo_foo'  # should match Origin and Label
-        self.components = ['main', 'updates']
+        self.codename = 'stable'
+        self.distribution = self.codename
+        self.components = ['main', 'blub']
         self.arches = ['amd64', 'i386', 'aarch64']
         self.repoversion = '2.0'
         self.description = 'Apt repository for Unit Test Repo Foo'
 
         self.date_format = u'Sat, 02 Jul 2016 05:20:50 +0000'
 
-        self.repodir = u'dists/stable'
-
         self.bindirs = [u'dists/stable/main/binary-amd64',
-                        u'dists/stable/updates/binary-amd64',
+                        u'dists/stable/blub/binary-amd64',
                         u'dists/stable/main/binary-i386',
-                        u'dists/stable/updates/binary-i386',
+                        u'dists/stable/blub/binary-i386',
                         u'dists/stable/main/binary-aarch64',
-                        u'dists/stable/updates/binary-aarch64']
+                        u'dists/stable/blub/binary-aarch64']
 
-        self.pools = [u'pool/main', u'pool/updates']
+        self.pools = [u'pool/main', u'pool/blub']
 
         self.directories = self.bindirs + self.pools
 
@@ -65,7 +65,8 @@ class RepoTest(base.BaseTestCase):
                          'label': self.name,
                          'version': self.repoversion,
                          'description': self.description,
-                         'codename': 'stable',
+                         'codename': self.codename,
+                         'distribution': self.distribution,
                          'components': self.components,
                          'architectures': self.arches,
                          }
@@ -117,7 +118,7 @@ class RepoTest(base.BaseTestCase):
                                   u'Apt repository for Unit Test Repo Foo',
                                   'Version': u'2.0',
                                   'Architectures': u'amd64 i386 aarch64',
-                                  'Components': u'main updates',
+                                  'Components': u'main blub',
                                   'Suite': u'stable',
                                   'Codename': u'stable',
                                   }
@@ -149,12 +150,13 @@ class RepoTest(base.BaseTestCase):
         repo_meta = AptRepoMeta(**self.defaults)
         with self.assertRaises(ValueError) as ctx:
             repo_meta.get_component_arch_binary('BOGUS', 'amd64')
-        self.assertEqual(
-            "Component BOGUS not supported (expected: main, updates)",
-            str(ctx.exception))
+        err_msg_expected = 'Component BOGUS not supported (expected: {}, {})'
+        err_msg_expected = err_msg_expected.format(self.components[0],
+                                                   self.components[1])
+        self.assertEqual(err_msg_expected, str(ctx.exception))
 
         with self.assertRaises(ValueError) as ctx:
-            repo_meta.get_component_arch_binary('main', 'BOGUS')
+            repo_meta.get_component_arch_binary(self.components[0], 'BOGUS')
         self.assertEqual(
             "Architecture BOGUS not defined (expected: amd64, i386, aarch64)",
             str(ctx.exception))
@@ -164,8 +166,8 @@ class RepoTest(base.BaseTestCase):
         _strftime.return_value = "ABCDE"
         repo_meta = AptRepoMeta(**self.defaults)
 
-        release_path = os.path.join(self.test_dir, 'dists', 'stable',
-                                    'Release')
+        release_path = os.path.join(self.test_dir, 'dists',
+                                    self.distribution, 'Release')
         self.assertEqual(release_path, repo_meta.release_path(self.test_dir))
         repo_meta.write_release(self.test_dir)
 
@@ -173,8 +175,8 @@ class RepoTest(base.BaseTestCase):
         self.assertEqual(expected,
                          deb822.Release(open(release_path, "rb").read()))
 
-        comp_binary = repo_meta.get_component_arch_binary('main', 'amd64')
-        release_path = os.path.join(self.test_dir, 'dists', 'stable',
+        comp_binary = repo_meta.get_component_arch_binary(self.components[0], 'amd64')
+        release_path = os.path.join(self.test_dir, 'dists', self.distribution,
                                     'main', 'binary-amd64', 'Release')
         self.assertEqual(release_path,
                          comp_binary.release_path(self.test_dir))
@@ -200,8 +202,8 @@ class RepoTest(base.BaseTestCase):
         ret = repo_meta.component_arch_binary_package_files_from_release()
         sha256sums = self.checksums['SHA256']
         expected = {
-            ('main', 'amd64'): sha256sums,
-            ('main', 'i386'): sha1sums,
+            (self.components[0], 'amd64'): sha256sums,
+            (self.components[0], 'i386'): sha1sums,
         }
 
         self.assertEqual(expected, ret)
@@ -295,7 +297,8 @@ class RepoTest(base.BaseTestCase):
             [(x[0]['Filename'], x[0]['Size']) for x in Files])
 
         # Make sure we have some Packages files
-        dist_dir = os.path.join(self.new_repo_dir, "dists", "stable", "main")
+        dist_dir = os.path.join(self.new_repo_dir, "dists",
+                                self.distribution, "main")
         self.assertFalse(os.path.exists(
             os.path.join(dist_dir, 'binary-aarch64')))
 
@@ -398,3 +401,21 @@ class RepoTest(base.BaseTestCase):
                     gpg_sign_options="really?")
         self.assertTrue(
             str(ctx.exception).startswith('gpg_sign_options: unexpected type'))
+
+
+class StrangeDistributionRepoTest(RepoTest):
+
+    def setUp(self):
+        super(StrangeDistributionRepoTest, self).setUp()
+        self.distribution = 'stable/updates'
+        self.components = ['updates/main', 'updates/blub']
+        self.bindirs = [u'dists/stable/updates/main/binary-amd64',
+                        u'dists/stable/updates/blub/binary-amd64',
+                        u'dists/stable/updates/main/binary-i386',
+                        u'dists/stable/updates/blub/binary-i386',
+                        u'dists/stable/updates/main/binary-aarch64',
+                        u'dists/stable/updates/blub/binary-aarch64']
+        self.directories = self.bindirs + self.pools
+        self.defaults.update(distribution=self.distribution, components=self.components)
+        self.release_data.update(Component=u'updates/main')
+        self.repo_release_data.update(Components=u'updates/main updates/blub',)
